@@ -14,6 +14,8 @@ class CV2Grid(object):
             self.canvas = img
 
         self.grid = np.array(grid, np.int)
+        self.grid_size = (self.size() / self.grid).astype(np.int)
+
         self.tr = drawing.TextRenderer(self.canvas)
 
 
@@ -34,12 +36,8 @@ class CV2Grid(object):
         return self.size()[1]
 
 
-    def grid_size(self):
-        return (self.size() / self.grid).astype(np.int)
-
-
     def abs_pos(self, grid_pos):
-        return (np.array(grid_pos) * self.grid_size()).astype(np.int)
+        return (np.array(grid_pos) * self.grid_size).astype(np.int)
 
 
     def paste_img(self, img, grid_pos, scale=1.0, title=None, title_style="heading", x_anchor="left"):
@@ -55,7 +53,7 @@ class CV2Grid(object):
         x1,y1 = self.abs_pos(grid_pos) + offset
         x2,y2 = self.abs_pos(grid_pos) + imageutils.img_size(img) + offset
 
-        self.canvas[y1:y2,x1:x2,:] = img
+        imageutils.paste_img(self.canvas, img, (y1,x1))
 
         if title is not None:
             if title_style == "heading":
@@ -194,10 +192,10 @@ class CV2Grid(object):
 
 
     def draw_grid(self, color=cvcolor.gray80):
-        for x in np.arange(0,self.grid[0]+1) * self.grid_size()[0]:
+        for x in np.arange(0,self.grid[0]+1) * self.grid_size[0]:
             cv2.line(self.canvas, (x,0), (x,self.height()), color=color)
 
-        for y in np.arange(0,self.grid[1]+1) * self.grid_size()[1]:
+        for y in np.arange(0,self.grid[1]+1) * self.grid_size[1]:
             cv2.line(self.canvas, (0,y), (self.width(),y), color=color)
 
 
@@ -222,7 +220,7 @@ class CV2Grid(object):
         size = np.array(size)
         if size[0] == -1:
             (tw,th),baseline = self.tr.calc_text_size(text,scale=scale)
-            size[0] = float(tw + 2 * margin[0]) / self.grid_size()[0]
+            size[0] = float(tw + 2 * margin[0]) / self.grid_size[0]
 
         abs_pos, abs_size = self.draw_frame(pos,size, fill_color, border_color, x_anchor, y_anchor)
         center = (abs_pos + abs_size // 2).astype(np.int)

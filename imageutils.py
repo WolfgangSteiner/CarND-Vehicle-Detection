@@ -18,7 +18,7 @@ def load_img(name,path="."):
 
 
 def img_size(img):
-    return np.array(img.shape[-2:-4:-1], np.int)
+    return np.flipud(np.array(img.shape[0:2], np.int))
 
 
 def new_img(size, color=cvcolor.black):
@@ -33,13 +33,28 @@ def new_img(size, color=cvcolor.black):
         return img
 
 
+def num_channels(img):
+    if len(img.shape) == 2:
+        return 1
+    else:
+        return img.shape[2]
+
+
 def paste_img(target_img, source_img, pos):
     h,w = source_img.shape[0:2]
-    target_img[pos[0]:pos[0]+h,pos[1]:pos[1]+w,:] = source_img
+    n_ch = num_channels(source_img)
+    if n_ch == 1:
+        for i_ch in range(0,num_channels(target_img)):
+            target_img[pos[0]:pos[0]+h,pos[1]:pos[1]+w,i_ch] = source_img
+    else:
+        target_img[pos[0]:pos[0]+h,pos[1]:pos[1]+w,:] = source_img
 
 
 def scale_img(img, factor):
-    return cv2.resize(img,None,fx=factor,fy=factor, interpolation=cv2.INTER_CUBIC)
+    if factor != 1:
+        return cv2.resize(img,None,fx=factor,fy=factor, interpolation=cv2.INTER_CUBIC)
+    else:
+        return img
 
 
 def show_img(img, title=""):

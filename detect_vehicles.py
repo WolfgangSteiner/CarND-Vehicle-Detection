@@ -10,6 +10,7 @@ from cv2grid import CV2Grid
 #import pygame
 import pyglet
 import sys
+from vehicledetector import VehicleDetector
 
 
 frame_rate = 25
@@ -32,6 +33,9 @@ if len(t_array) == 2:
 
 args.video_file += "_video.mp4"
 
+vdetector = VehicleDetector()
+
+
 def process_frame(frame, fps=None):
     global counter
 
@@ -42,13 +46,17 @@ def process_frame(frame, fps=None):
 #    detector.annotate(frame)
 
     frame = rgb2bgr(frame)
+    annotated_frame = vdetector.process(frame)
 
     if args.render and not args.annotate:
-        new_frame = detector.annotated_frame
+        new_frame = annotated_frame
     else:
         pass
-        grid = CV2Grid.with_img(out_frame,(6,6))
-        grid.paste_img(frame, (0,0), scale=0.5)
+        grid = CV2Grid.with_img(out_frame,(4,4))
+        grid.grid_size[1] = 64
+        grid.paste_img(annotated_frame, (0,0), scale=0.5)
+        grid.paste_img(vdetector.cropped_img, (0,6), scale=1.0)
+        grid.paste_img(vdetector.hog_image, (1,6), scale=1.0)
 
     new_frame = grid.canvas
 
@@ -56,14 +64,14 @@ def process_frame(frame, fps=None):
         grid.text((0,0), "%5.2ffps"%fps, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
 
 
-    if True or args.render:
+    if args.render:
         new_frame = bgr2rgb(new_frame)
 
     return new_frame
 
 
-#clip = VideoFileClip(args.video_file)
-cap = cv2.VideoCapture(args.video_file)
+clip = VideoFileClip(args.video_file)
+#cap = cv2.VideoCapture(args.video_file)
 counter = 0
 frame_skip = 1
 start_frame = args.t1
@@ -91,19 +99,25 @@ def on_draw():
     image.blit(0, 0)
 
 
-while True:
-    pyglet.clock.tick()
+if args.render:
+     out_file_name = args.video_file.split(".")[0] + "_annotated.mp4"
+     annotated_clip = clip.fl_image(process_frame)
+     annotated_clip.write_videofile(out_file_name, fps=frame_rate, audio=False)
+else:
 
-    has_frame, frame = cap.read()
-    if not has_frame:
+    for frame in clip.iter_frames():
+        if not args.render:
+            pyglet.clock.tick()
+            out_frame = process_frame(frame,fps=pyglet.clock.get_fps())
+            window.switch_to()
+            window.dispatch_events()
+            window.dispatch_event('on_draw')
+            window.flip()
+
+    if not args.render:
         pyglet.app.exit()
 
-    out_frame = process_frame(frame,fps=pyglet.clock.get_fps())
 
-    window.switch_to()
-    window.dispatch_events()
-    window.dispatch_event('on_draw')
-    window.flip()
 
 # if args.render:
 #     out_file_name = args.video_file.split(".")[0] + "_annotated.mp4"
