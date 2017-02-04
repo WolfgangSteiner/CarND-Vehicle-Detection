@@ -33,6 +33,10 @@ def new_img(size, color=cvcolor.black):
         return img
 
 
+def copy_img(img):
+    return np.copy(img)
+
+
 def num_channels(img):
     if len(img.shape) == 2:
         return 1
@@ -138,11 +142,17 @@ def AND(*args):
         result = cv2.bitwise_and(result, a)
     return result
 
+
 def OR(*args):
     result = args[0]
     for a in args[1:]:
         result = cv2.bitwise_or(result, a)
     return result
 
+
 def NOT(a):
     return 1 - a
+
+
+def blend_img(target_img, source_img, alpha=0.5):
+    return cv2.addWeighted(target_img, 1.0, source_img, alpha, gamma=0.0)

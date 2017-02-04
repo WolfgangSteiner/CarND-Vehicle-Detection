@@ -15,7 +15,7 @@ from vehicledetector import VehicleDetector
 
 frame_rate = 25
 parser = argparse.ArgumentParser()
-parser.add_argument('-1', action="store_const", dest="video_file", const="project")
+parser.add_argument('-1', action="store_const", dest="video_file", const="project", default="project")
 parser.add_argument('-2', action="store_const", dest="video_file", const="challenge")
 parser.add_argument('-3', action="store_const", dest="video_file", const="harder_challenge")
 parser.add_argument('-d', action="store_const", dest="delay", const=500, default=1)
@@ -34,7 +34,7 @@ if len(t_array) == 2:
 args.video_file += "_video.mp4"
 
 vdetector = VehicleDetector()
-
+vdetector.scale=args.scale
 
 def process_frame(frame, fps=None):
     global counter
@@ -55,8 +55,8 @@ def process_frame(frame, fps=None):
         grid = CV2Grid.with_img(out_frame,(4,4))
         grid.grid_size[1] = 64
         grid.paste_img(annotated_frame, (0,0), scale=0.5)
-        grid.paste_img(vdetector.cropped_img, (0,6), scale=1.0)
-        grid.paste_img(vdetector.hog_image, (1,6), scale=1.0)
+        grid.paste_img(vdetector.cropped_img, (0,6), scale=args.scale/4.0)
+        grid.paste_img(vdetector.hog_image, (1,6), scale=args.scale/4.0)
 
     new_frame = grid.canvas
 

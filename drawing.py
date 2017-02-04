@@ -24,8 +24,9 @@ def draw_pixel(img, pos, color=cvcolor.white):
     img[pos[1],pos[0],:] = color
 
 
-def draw_line(img, p1, p2, color, thickness=1):
-    cv2.line(img, (p1[0],p1[1]), (p2[0],p2[1]), color=color, lineType=cv2.LINE_AA, thickness=thickness)
+def draw_line(img, p1, p2, color, thickness=1, antialias=True):
+    line_type = cv2.LINE_AA if antialias else 8
+    cv2.line(img, (p1[0],p1[1]), (p2[0],p2[1]), color=color, lineType=line_type, thickness=thickness)
 
 
 def draw_rectangle(img, pos, size, color, thickness=1):
