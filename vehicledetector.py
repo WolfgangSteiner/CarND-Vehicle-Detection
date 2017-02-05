@@ -35,7 +35,7 @@ class VehicleDetector(MidiControlManager):
     def process(self,frame):
         self.poll()
         self.frame = undistort_image(frame)
-        img = scale_img(frame, 1 / self.scale)
+        img = scale_img(self.frame, 1 / self.scale)
         self.cropped_img = self.crop_img(img)
         self.cropped_img_y, _, _ = split_yuv(self.cropped_img)
         #self.hog_data, self.hog_image = hog(self.cropped_img_y, orientations=8, pixels_per_cell=(8, 8), cells_per_block=(2, 2),
