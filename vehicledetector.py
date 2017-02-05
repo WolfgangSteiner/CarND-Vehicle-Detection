@@ -1,4 +1,3 @@
-from skimage.feature import hog
 from drawing import *
 from imageutils import *
 import pickle
@@ -20,7 +19,7 @@ class VehicleDetector(MidiControlManager):
         self.crop_y = None
         self.grid = None
         self.svc,self.scaler = self.load_svc()
-        self.threshold = MidiControl(self,"threshold", 80, 0.5, 0.0, 1.0)
+        self.decision_threshold = MidiControl(self,"decision_threshold", 80, 0.5, 0.0, 1.0)
         self.heatmap = None
 
 
@@ -37,16 +36,12 @@ class VehicleDetector(MidiControlManager):
         self.frame = undistort_image(frame)
         img = scale_img(self.frame, 1 / self.scale)
         self.cropped_img = self.crop_img(img)
-        self.cropped_img_y, _, _ = split_yuv(self.cropped_img)
-        #self.hog_data, self.hog_image = hog(self.cropped_img_y, orientations=8, pixels_per_cell=(8, 8), cells_per_block=(2, 2),
-        #                                    visualise=True, transform_sqrt=False, feature_vector=False, normalise=None)
-
-        #self.hog_image *= 4
         self.draw_grid_on_cropped_img()
 
         self.sliding_window()
         self.update_heatmap()
         self.draw_detections()
+        self.draw_bboxes()
 
         return self.frame
 
@@ -96,7 +91,7 @@ class VehicleDetector(MidiControlManager):
 
     def sliding_window(self):
         self.detections = []
-        for size,y in ((64,0), (32,0), (32,8), (32,16), (32,24),(16,0),(16,4),(16,8)):
+        for size,y in ((64,0), (32,0), (32,8), (32,16), (32,24),(16,0),(16,4),(16,8),(16,12)):
             self.sliding_window_impl(size,y)
 
 
@@ -111,7 +106,7 @@ class VehicleDetector(MidiControlManager):
             hog_for_window = [np.ravel(hog_for_slice[ch][:,i:i+window_size//ppc-1,:,:,:]) for ch in range(0,3)]
             feature_vector = self.scaler[window_size].transform(np.concatenate(hog_for_window, axis=0))
             score = self.svc[window_size].decision_function(feature_vector)
-            if score > self.threshold.value:
+            if score > self.decision_threshold.value:
                 rect = Rectangle.from_point_and_size(Point(i*ppc, y), Point(window_size, window_size))
                 self.detections.append((rect,score))
             i += 1
@@ -120,12 +115,18 @@ class VehicleDetector(MidiControlManager):
     def draw_detections(self):
         for r,_ in self.detections:
             offset = Point(0, self.crop_y[0])
+            draw_rectangle(self.frame, r.translate(offset)*4, color=cvcolor.gray50)
+
+
+    def draw_bboxes(self):
+        for r in self.heatmap.get_bboxes():
+            offset = Point(0, self.crop_y[0])
             draw_rectangle(self.frame, r.translate(offset)*4, color=cvcolor.green)
 
 
     def update_heatmap(self):
         if self.heatmap is None:
-            self.heatmap = HeatMap(self.cropped_image_size, 0.25)
+            self.heatmap = HeatMap(self.cropped_image_size, self)
 
         self.heatmap.add_detections(self.detections)
         self.heatmap.update_map()

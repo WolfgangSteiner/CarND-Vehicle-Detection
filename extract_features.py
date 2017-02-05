@@ -5,7 +5,7 @@ import numpy as np
 
 def calc_hog(ch, ppc):
     return skimage.feature.hog(ch, orientations=9, pixels_per_cell=(ppc, ppc), cells_per_block=(2, 2),
-                               visualise=False, transform_sqrt=True, feature_vector=False, normalise=None)
+                               visualise=False, transform_sqrt=True, feature_vector=False, normalise=None).astype(np.float32)
 
 
 def extract_features(img, window_size):

@@ -59,11 +59,15 @@ def process_frame(frame, fps=None):
         #grid.paste_img(vdetector.hog_image, (1,6), scale=args.scale/4.0)
         grid.paste_img((vdetector.heatmap.map * 32).astype(np.uint8), (3,1), scale=args.scale/4.0)
         grid.paste_img((vdetector.heatmap.thresholded_map * 255.0).astype(np.uint8), (3,2), scale=args.scale/4.0)
+        grid.paste_img((vdetector.heatmap.label_map * 32.0).astype(np.uint8), (3,3), scale=args.scale/4.0)
 
     new_frame = grid.canvas
 
+
+    grid.text((0,0), "%02d.%02d"%(counter // frame_rate, counter % frame_rate), text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
+
     if fps is not None:
-        grid.text((0,0), "%5.2ffps"%fps, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
+        grid.text((0.3,0), "%5.2ffps"%fps, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
 
 
     if args.render:
