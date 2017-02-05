@@ -96,13 +96,13 @@ class VehicleDetector(MidiControlManager):
 
     def sliding_window(self):
         self.detections = []
-        for size,y in ((64,0), (32,0), (32,8), (32,16), (32,24)):
+        for size,y in ((64,0), (32,0), (32,8), (32,16), (32,24),(16,0),(16,4),(16,8)):
             self.sliding_window_impl(size,y)
 
 
     def sliding_window_impl(self, window_size, y):
         slice = self.cropped_img[y:y+window_size,:]
-        ppc = 8 #* window_size // 64
+        ppc = 16 * window_size // 64
 
         hog_for_slice = [calc_hog(ch,ppc) for ch in split_yuv(slice)]
         i = 0

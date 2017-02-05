@@ -9,7 +9,7 @@ def calc_hog(ch, ppc):
 
 
 def extract_features(img, window_size):
-    ppc = 8  # * size // 64
+    ppc = 16  * window_size // 64
     result = [np.ravel(calc_hog(ch, ppc)) for ch in split_yuv(img)]
     return np.concatenate(result, axis=0)
 

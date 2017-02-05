@@ -57,7 +57,7 @@ class DataSource(object):
 
     def load_data_from_dir(self, dir, label):
         print("Loading data from %s" % dir)
-        X = {64:[], 32:[]}
+        X = {64:[], 32:[], 16:[]}
         img_file_names = glob.glob("%s/**/*.[pj][np]g" % dir)
         n = len(img_file_names)
         for idx,f in enumerate(img_file_names):
