@@ -54,10 +54,11 @@ def process_frame(frame, fps=None):
         pass
         grid = CV2Grid.with_img(out_frame,(4,4))
         grid.grid_size[1] = 64
-        grid.paste_img(annotated_frame, (0,0), scale=0.5)
-        grid.paste_img(vdetector.cropped_img, (0,6), scale=args.scale/4.0)
+        grid.paste_img(annotated_frame, (0,0), scale=0.75)
+        grid.paste_img(vdetector.cropped_img, (3,0), scale=args.scale/4.0)
         #grid.paste_img(vdetector.hog_image, (1,6), scale=args.scale/4.0)
-        grid.paste_img((vdetector.heatmap.map * 32).astype(np.uint8), (1,6), scale=args.scale/4.0)
+        grid.paste_img((vdetector.heatmap.map * 32).astype(np.uint8), (3,1), scale=args.scale/4.0)
+        grid.paste_img((vdetector.heatmap.thresholded_map * 255.0).astype(np.uint8), (3,2), scale=args.scale/4.0)
 
     new_frame = grid.canvas
 

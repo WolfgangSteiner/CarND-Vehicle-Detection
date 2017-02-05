@@ -2,10 +2,12 @@ import numpy as np
 
 class HeatMap(object):
     def __init__(self, size, A=0.1):
-        self.map = np.zeros(size.astype(np.int))
-        self.new_map = np.zeros(size.astype(np.int))
+        self.map = np.zeros(size.astype(np.int), np.float32)
+        self.new_map = np.zeros_like(self.map)
+        self.thresholded_map = np.zeros_like(self.map)
         self.A = A
         self.B = 1.0 - self.A
+        self.threshold = 4.0
 
 
     def add_detections(self, detections):
@@ -18,3 +20,6 @@ class HeatMap(object):
     def update_map(self):
         self.map = self.A * self.new_map + self.B * self.map
         self.new_map[:,:] = 0.0
+        self.thresholded_map[::] = 0.0
+        self.thresholded_map[self.map > self.threshold] = 1.0
+
