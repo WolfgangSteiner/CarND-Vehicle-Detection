@@ -56,7 +56,8 @@ def process_frame(frame, fps=None):
         grid.grid_size[1] = 64
         grid.paste_img(annotated_frame, (0,0), scale=0.5)
         grid.paste_img(vdetector.cropped_img, (0,6), scale=args.scale/4.0)
-        grid.paste_img(vdetector.hog_image, (1,6), scale=args.scale/4.0)
+        #grid.paste_img(vdetector.hog_image, (1,6), scale=args.scale/4.0)
+        grid.paste_img((vdetector.heatmap.map * 32).astype(np.uint8), (1,6), scale=args.scale/4.0)
 
     new_frame = grid.canvas
 
@@ -98,15 +99,18 @@ def on_draw():
     image = pyglet.image.ImageData(1280,720, 'BGR', out_frame[::-1,:,:].tostring())
     image.blit(0, 0)
 
+counter = -1
 
 if args.render:
      out_file_name = args.video_file.split(".")[0] + "_annotated.mp4"
      annotated_clip = clip.fl_image(process_frame)
      annotated_clip.write_videofile(out_file_name, fps=frame_rate, audio=False)
 else:
-
     for frame in clip.iter_frames():
         if not args.render:
+            counter += 1
+            if counter < args.t1:
+                continue
             pyglet.clock.tick()
             out_frame = process_frame(frame,fps=pyglet.clock.get_fps())
             window.switch_to()

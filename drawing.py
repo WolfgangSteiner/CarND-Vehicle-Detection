@@ -1,6 +1,8 @@
 import cvcolor
 import numpy as np
 import cv2
+from point import Point
+from rectangle import Rectangle
 
 def put_text(img, text, pos, font=cv2.FONT_HERSHEY_PLAIN, color=cvcolor.green, scale=1.0):
     (tw,th),baseline = cv2.getTextSize(text, font, scale, 1)
@@ -29,9 +31,9 @@ def draw_line(img, p1, p2, color, thickness=1, antialias=True):
     cv2.line(img, (p1[0],p1[1]), (p2[0],p2[1]), color=color, lineType=line_type, thickness=thickness)
 
 
-def draw_rectangle(img, pos, size, color, thickness=1):
-    p1 = np.array(pos, np.int)
-    p2 = p1 + np.array(size, np.int)
+def draw_rectangle(img, rect, color, thickness=1):
+    p1 = rect.p1().astype(np.int)
+    p2 = rect.p2().astype(np.int)
     cv2.rectangle(img, (p1[0],p1[1]), (p2[0],p2[1]), color, thickness=thickness)
 
 
