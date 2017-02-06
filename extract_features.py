@@ -8,9 +8,27 @@ def calc_hog(ch, ppc):
                                visualise=False, transform_sqrt=True, feature_vector=False, normalise=None).astype(np.float32)
 
 
-def extract_features(img, window_size):
+def calc_color_histogram(img_yuv):
+    return np.concatenate([np.histogram(img_yuv[:,:,i_ch], bins=32, range=(0,256))[0] for i_ch in range(3)], axis=0).astype(np.float32)
+
+
+def calc_spatial_color_binning(img_yuv):
+    h,w = img_yuv.shape[0:2]
+    factor = 8 / h
+    return np.concatenate([np.ravel(scale_img(img_yuv[:,:,i_ch],factor)) for i_ch in range(3)], axis=0).astype(np.float32)
+
+
+def extract_features(img_yuv, window_size, hog_data=None, hog_pos=None):
     ppc = 16  * window_size // 64
-    result = [np.ravel(calc_hog(ch, ppc)) for ch in split_yuv(img)]
-    return np.concatenate(result, axis=0)
+    if hog_data is None:
+        hog_feature_array = [np.ravel(calc_hog(img_yuv[:,:,i_ch], ppc)) for i_ch in range(3)]
+    else:
+        i = hog_pos[1]
+        hog_feature_array = [np.ravel(hog_data[i_ch][:, i:i + window_size // ppc - 1, :, :, :]) for i_ch in range(3)]
+
+    hog_feature = np.concatenate(hog_feature_array, axis=0)
+    color_hist = calc_color_histogram(img_yuv)
+    spacial_color_bins = calc_spatial_color_binning(img_yuv)
+    return np.concatenate((hog_feature, color_hist, spacial_color_bins), axis=0)
 
 

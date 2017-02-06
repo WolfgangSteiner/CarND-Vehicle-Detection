@@ -7,7 +7,7 @@ import cvcolor
 from calibrate_camera import undistort_image
 from midicontrol import MidiControlManager, MidiControl, set_logging
 from heatmap import HeatMap
-from extract_features import calc_hog
+from extract_features import calc_hog, extract_features
 
 set_logging(True)
 
@@ -19,7 +19,7 @@ class VehicleDetector(MidiControlManager):
         self.crop_y = None
         self.grid = None
         self.svc,self.scaler = self.load_svc()
-        self.decision_threshold = MidiControl(self,"decision_threshold", 80, 0.5, 0.0, 1.0)
+        self.decision_threshold = MidiControl(self,"decision_threshold", 80, 0.0, 0.0, 1.0)
         self.heatmap = None
 
 
@@ -36,6 +36,7 @@ class VehicleDetector(MidiControlManager):
         self.frame = undistort_image(frame)
         img = scale_img(self.frame, 1 / self.scale)
         self.cropped_img = self.crop_img(img)
+        self.cropped_img_yuv = bgr2yuv(self.cropped_img)
         self.draw_grid_on_cropped_img()
 
         self.sliding_window()
@@ -51,7 +52,6 @@ class VehicleDetector(MidiControlManager):
             w, h = img_size(self.cropped_img)
             self.grid = new_img((w, h))
             y = h // 2
-            print(y)
             for i in range(0, 3):
                 draw_line(self.grid, (0, y), (w, y), color=cvcolor.white, thickness=1, antialias=False)
                 y //= 2
@@ -91,7 +91,7 @@ class VehicleDetector(MidiControlManager):
 
     def sliding_window(self):
         self.detections = []
-        for size,y in ((64,0), (32,0), (32,8), (32,16), (32,24),(16,0),(16,4),(16,8),(16,12)):
+        for size,y in ((32,16),(32,24),(32,32),(16,0),(16,8),(16,16),(16,24)):
             self.sliding_window_impl(size,y)
 
 
@@ -103,9 +103,12 @@ class VehicleDetector(MidiControlManager):
         i = 0
         delta_i = window_size//ppc - 1
         while i <= hog_for_slice[0].shape[1] - delta_i:
-            hog_for_window = [np.ravel(hog_for_slice[ch][:,i:i+window_size//ppc-1,:,:,:]) for ch in range(0,3)]
-            feature_vector = self.scaler[window_size].transform(np.concatenate(hog_for_window, axis=0))
-            score = self.svc[window_size].decision_function(feature_vector)
+            x = i * ppc
+            window_yuv = bgr2yuv(self.cropped_img[y:y+window_size,x:x+window_size])
+            feature_vector = extract_features(window_yuv, window_size, hog_for_slice, (0,i))
+            normalized_feature_vector = self.scaler[window_size].transform(feature_vector)
+            score = self.svc[window_size].decision_function(normalized_feature_vector)
+
             if score > self.decision_threshold.value:
                 rect = Rectangle.from_point_and_size(Point(i*ppc, y), Point(window_size, window_size))
                 self.detections.append((rect,score))

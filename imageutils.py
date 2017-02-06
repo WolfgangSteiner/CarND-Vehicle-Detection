@@ -116,6 +116,7 @@ def split_yuv(img):
 def join_yuv(y,u,v):
     return yuv2bgr(combine_channels(y,u,v))
 
+
 def split_hsv(img):
     return split_channels(bgr2hsv(img))
 
@@ -134,6 +135,10 @@ def expand_channel(c):
 
 def expand_mask(m):
     return expand_channel(m) * 255
+
+
+def crop_img(img, x1, y1, x2, y2):
+    return img[y1:y2,x1:x2,:]
 
 
 def AND(*args):
