@@ -63,8 +63,13 @@ class DataSource(object):
             img = load_img(img_file_name)
             for window_size in X:
                 if window_size == 16:
-                    img = scale_img(img,0.5)
-                for augmented_img in self.augment_image(img, window_size, label):
+                    scaled_img = scale_img(img,0.25)
+                elif window_size == 32:
+                    scaled_img = scale_img(img, 0.5)
+                else:
+                    scaled_img = img
+
+                for augmented_img in self.augment_image(scaled_img, window_size, label):
                     augmented_img_yuv = bgr2yuv(augmented_img)
                     X[window_size].append(extract_features(augmented_img_yuv, window_size))
 

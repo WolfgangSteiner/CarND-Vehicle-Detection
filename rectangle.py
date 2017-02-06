@@ -1,4 +1,5 @@
 from point import Point
+import numpy as np
 
 class Rectangle(object):
     def __init__(self, x1, y1, x2, y2):
@@ -166,3 +167,35 @@ class Rectangle(object):
 
     def __repr__(self):
         return "(%.2f, %.2f, %.2f, %.2f)" % (self.x1,self.y1,self.x2,self.y2)
+
+
+    def is_vertical_edge_intersected_by_line(self, x, line_p1, line_p2):
+        delta = (line_p2 - line_p1).astype(np.float32)
+        vec = delta / np.linalg.norm(delta)
+        if vec[0] == 0.0:
+            return False
+        t = (x - line_p1.x) / vec[0]
+        y = t * vec[1]
+        return y >= self.y1 and y <= self.y2
+
+
+    def is_horizontal_edge_intersected_by_line(self, y, line_p1, line_p2):
+        delta = (line_p2 - line_p1).astype(np.float32)
+        vec = delta / np.linalg.norm(delta)
+        if vec[1] == 0.0:
+            return False
+        t = (y - line_p1.y) / vec[1]
+        x = t * vec[0]
+        return x >= self.x1 and x <= self.x2
+
+
+    def is_intersected_by_line(self, line_p1, line_p2):
+        for x in self.x1,self.x2:
+            if self.is_vertical_edge_intersected_by_line(x, line_p1, line_p2):
+                return True
+
+        for y in self.y1,self.y2:
+            if self.is_horizontal_edge_intersected_by_line(y, line_p1, line_p2):
+                return True
+
+        return False
