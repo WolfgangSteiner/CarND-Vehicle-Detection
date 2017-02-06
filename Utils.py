@@ -73,7 +73,19 @@ def download(url, filename=None):
 
 
 def progress_bar(i, n, message=None, length=40, absolute_numbers=True, unit=""):
-    percent = float(i) / n
+    if i == 0:
+        progress_bar.start_time_stamp = time.time()
+        eta = ""
+    else:
+        total_time = time.time() - progress_bar.start_time_stamp
+        remaining_time = (n - i) * total_time / i
+        eta = "  ETA: %02d:%02d" % (remaining_time / 60, remaining_time % 60)
+
+    elapsed_time = time.time() - progress_bar.start_time_stamp
+    elapsed = "  %02d:%02d" % (elapsed_time / 60, elapsed_time % 60)
+
+
+    percent = float(i+1) / n
     dots = int(percent * length)
     head = "" if message is None else message + ' ... '
     if percent < 1.0:
@@ -85,12 +97,17 @@ def progress_bar(i, n, message=None, length=40, absolute_numbers=True, unit=""):
     bar += " %3.d%%" % (percent*100)
 
     if absolute_numbers:
-        bar += "  %d/%d %s" % (i,n,unit)
+        bar += "  %d/%d %s" % (i+1,n,unit)
+
+    bar += elapsed
+    bar += eta
 
     sys.stdout.write('\r' + head + bar)
     sys.stdout.flush()
-    if i == n:
+    if i+1 == n:
         print("")
+
+progress_bar.start_time_stamp = None
 
 
 def display_image(img_file):
