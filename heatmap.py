@@ -16,7 +16,7 @@ class HeatMap(object):
         for (r,confidence) in detections:
             x1,y1 = r.p1().astype(np.int)
             x2,y2 = r.p2().astype(np.int)
-            self.new_map[y1:y2, x1:x2] += 1.0
+            self.new_map[y1:y2, x1:x2] += confidence
 
 
     def update_map(self):

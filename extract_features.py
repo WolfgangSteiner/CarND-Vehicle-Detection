@@ -23,8 +23,9 @@ def extract_features(img_yuv, window_size, hog_data=None, hog_pos=None):
     if hog_data is None:
         hog_feature_array = [np.ravel(calc_hog(img_yuv[:,:,i_ch], ppc)) for i_ch in range(3)]
     else:
-        i = hog_pos[1]
-        hog_feature_array = [np.ravel(hog_data[i_ch][:, i:i + window_size // ppc - 1, :, :, :]) for i_ch in range(3)]
+        hog_window_size = window_size // ppc - 1
+        j,i = hog_pos
+        hog_feature_array = [np.ravel(hog_data[i_ch][j:j+hog_window_size, i:i+hog_window_size, :, :, :]) for i_ch in range(3)]
 
     hog_feature = np.concatenate(hog_feature_array, axis=0)
     color_hist = calc_color_histogram(img_yuv)
