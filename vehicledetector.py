@@ -9,6 +9,7 @@ from midicontrol import MidiControlManager, MidiControl, set_logging
 from heatmap import HeatMap
 from extract_features import calc_hog, extract_features
 import Utils
+from multiprocessing.dummy import Pool
 
 set_logging(True)
 
@@ -22,6 +23,7 @@ class VehicleDetector(MidiControlManager):
         self.svc,self.scaler = self.load_svc()
         self.decision_threshold = MidiControl(self,"decision_threshold", 80, 0.0, 0.0, 8.0)
         self.heatmap = None
+        self.pool = Pool(8)
 
         for size in (64,32,16):
             Utils.mkdir("false_positives/%d" % size)
@@ -101,7 +103,9 @@ class VehicleDetector(MidiControlManager):
         self.detections = []
         self.false_positive_count = 0
         for size,y1,y2,delta_y in ((64,0,0,16),(32,0,16,8),(16,0,8,4)):
-            self.sliding_window_impl(size, y1, y2, delta_y)
+            result = self.sliding_window_impl(size, y1, y2, delta_y)
+            for window_rect, i_score in result:
+                self.detections.append((window_rect,i_score))
 
 
     def sliding_window_impl(self, window_size, y1, y2, delta_y):
@@ -114,10 +118,27 @@ class VehicleDetector(MidiControlManager):
         inc_j = delta_y // ppc
         num_windows_y = (hog_for_slice[0].shape[0] - delta_j)
         window_positions = []
+        #func = partial(self.sliding_window_horizontal, hog_for_slice, window_size, ppc, )
+
         for j in range(0, num_windows_y + 1, inc_j):
-            y = y1 + j * ppc
-            for window_rect, i_score in self.sliding_window_horizontal(hog_for_slice, window_size, ppc, j, y):
-                self.detections.append((window_rect,i_score))
+            X_i, window_positions_i = self.sliding_window_horizontal(hog_for_slice, window_size, ppc, y1, j)
+            X.extend(X_i)
+            window_positions.extend(window_positions_i)
+
+        X = np.array(X)
+        window_positions = np.array(window_positions)
+        normalized_feature_vector = self.scaler[window_size].transform(X)
+        score = self.svc[window_size].decision_function(normalized_feature_vector)
+        pos_window_indexes = np.where(score > self.decision_threshold.value)[0]
+        pos_window_positions = window_positions[pos_window_indexes]
+        pos_window_scores = score[pos_window_indexes]
+
+        result = []
+        for (x, y), score in zip(pos_window_positions, pos_window_scores):
+            window_rect = Rectangle.from_point_and_size(Point(x, y), Point(1.0, 1.0) * window_size)
+            result.append((window_rect, score))
+
+        return result
 
 
  #           if False and self.frame_count < 125:
@@ -126,34 +147,22 @@ class VehicleDetector(MidiControlManager):
  #               self.false_positive_count += 1
 
 
-    def sliding_window_horizontal(self, hog_for_slice, window_size, ppc, j, y):
+    def sliding_window_horizontal(self, hog_for_slice, window_size, ppc, y1, j):
         X = []
         inc_i = 2
+        y = y1 + j * ppc
         delta_i = window_size//ppc - 1
         num_windows_x = (hog_for_slice[0].shape[1] - delta_i)
         window_positions = []
 
         for i in range(0, num_windows_x + 1, inc_i):
             x = i * ppc
-            window_rect = Rectangle.from_point_and_size(Point(i*ppc, y), Point(window_size, window_size))
             window_yuv = bgr2yuv(self.cropped_img[y:y+window_size,x:x+window_size])
             X.append(extract_features(window_yuv, window_size, hog_for_slice, (j,i)))
             window_positions.append(np.array((x,y)))
 
-        X = np.array(X)
-        window_positions = np.array(window_positions)
-        normalized_feature_vector = self.scaler[window_size].transform(X)
-        score = self.svc[window_size].decision_function(normalized_feature_vector)
-        pos_window_indexes = np.where(score > self.decision_threshold.value)[0]
-        pos_window_positions = window_positions[pos_window_indexes]
+        return X,window_positions
 
-        result = []
-        for idx, (x, y) in zip(pos_window_indexes, pos_window_positions):
-            window_rect = Rectangle.from_point_and_size(Point(x, y), Point(1.0, 1.0) * window_size)
-            i_score = score[idx]
-            result.append((window_rect, i_score))
-
-        return result
 
 
     def draw_detections(self):
