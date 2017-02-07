@@ -8,8 +8,8 @@ import imageutils
 
 def calibrate_camera():
     """
-    Calculate the camera matrix and ditortion coefficients. For this,
-    the calibration images from the camear_cal folder are analyzed.
+    Calculate the camera matrix and distortion coefficients. For this,
+    the calibration images from the camera_cal folder are analyzed.
     """
 
     object_points = []
@@ -38,7 +38,11 @@ def calibrate_camera():
     distortion_coefficients = np.zeros(5)
     cv2.calibrateCamera(object_points, image_points, img.shape[0:2], camera_matrix, distortion_coefficients)
 
-    return camera_matrix, distortion_coefficients
+    # calculate the maps for cv2.remap:
+    map1, map2, = cv2.initUndistortRectifyMap(camera_matrix, distortion_coefficients, None, camera_matrix, (1280, 720),
+                                              cv2.CV_32FC1)
+
+    return camera_matrix, distortion_coefficients, map1, map2
 
 # this code is executed when the module is imported
 # if distortion coefficients are already pickled: load pickled data
@@ -46,12 +50,17 @@ if os.path.exists("camera_calibration.pickle"):
     with open("camera_calibration.pickle", "rb") as f:
         camera_matrix = pickle.load(f)
         distortion_coefficients = pickle.load(f)
+        map1 = pickle.load(f)
+        map2 = pickle.load(f)
+
 # otherwise: calculate calibration data and save to pickle.
 else:
-    camera_matrix, distortion_coefficients = calibrate_camera()
+    camera_matrix, distortion_coefficients, map1, map2 = calibrate_camera()
     with open("camera_calibration.pickle", "wb") as f:
         pickle.dump(camera_matrix, f)
         pickle.dump(distortion_coefficients, f)
+        pickle.dump(map1, f)
+        pickle.dump(map2, f)
 
 
 def undistort_image(img):
@@ -59,14 +68,14 @@ def undistort_image(img):
     Undistort an image using the calculated distortion coefficients and
     camera matrix.
     """
-    return cv2.undistort(img, camera_matrix, distortion_coefficients)
+    return cv2.remap(img, map1, map2, cv2.INTER_LINEAR)
 
 
 # plot calibration data when called as main:
 if __name__ == '__main__':
-    c = cv2grid.CV2Grid(1280/2,720/4*2,grid=(2,2))
+    c = cv2grid.CV2Grid((1280//2,720//4*2),grid=(2,2))
     c.draw_grid()
-    for i,img_name in enumerate(("camera_cal/calibration1.jpg", "test_images/straight_lines1.jpg")):
+    for i,img_name in enumerate(("camera_cal/calibration1.jpg",)):
         print(img_name)
         img = imageutils.load_img(img_name)
         udist_img = undistort_image(img)
