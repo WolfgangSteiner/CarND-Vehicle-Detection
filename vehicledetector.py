@@ -108,25 +108,37 @@ class VehicleDetector(MidiControlManager):
         slice = self.cropped_img[y1:y2+window_size,:,:]
         ppc = 16 * window_size // 64
         hog_for_slice = [calc_hog(ch,ppc) for ch in split_yuv(slice)]
-        #spacial_colors =
 
-        i = 0
-        j = 0
-        delta_ij = window_size//ppc - 1
+        delta_j = window_size//ppc - 1
         X = []
-        inc_i = 2
         inc_j = delta_y // ppc
-        num_windows_y = (hog_for_slice[0].shape[0] - delta_ij)
-        num_windows_x = (hog_for_slice[0].shape[1] - delta_ij)
+        num_windows_y = (hog_for_slice[0].shape[0] - delta_j)
         window_positions = []
         for j in range(0, num_windows_y + 1, inc_j):
             y = y1 + j * ppc
-            for i in range(0, num_windows_x + 1, inc_i):
-                x = i * ppc
-                window_rect = Rectangle.from_point_and_size(Point(i*ppc, y), Point(window_size, window_size))
-                window_yuv = bgr2yuv(self.cropped_img[y:y+window_size,x:x+window_size])
-                X.append(extract_features(window_yuv, window_size, hog_for_slice, (j,i)))
-                window_positions.append(np.array((x,y)))
+            for window_rect, i_score in self.sliding_window_horizontal(hog_for_slice, window_size, ppc, j, y):
+                self.detections.append((window_rect,i_score))
+
+
+ #           if False and self.frame_count < 125:
+ #               false_positive_img = crop_img(self.cropped_img, window_rect.x1, window_rect.y1, window_rect.x2, window_rect.y2)
+ #               save_img(false_positive_img, "false_positives/%d/%04d-%04d" % (window_size,self.frame_count, self.false_positive_count))
+ #               self.false_positive_count += 1
+
+
+    def sliding_window_horizontal(self, hog_for_slice, window_size, ppc, j, y):
+        X = []
+        inc_i = 2
+        delta_i = window_size//ppc - 1
+        num_windows_x = (hog_for_slice[0].shape[1] - delta_i)
+        window_positions = []
+
+        for i in range(0, num_windows_x + 1, inc_i):
+            x = i * ppc
+            window_rect = Rectangle.from_point_and_size(Point(i*ppc, y), Point(window_size, window_size))
+            window_yuv = bgr2yuv(self.cropped_img[y:y+window_size,x:x+window_size])
+            X.append(extract_features(window_yuv, window_size, hog_for_slice, (j,i)))
+            window_positions.append(np.array((x,y)))
 
         X = np.array(X)
         window_positions = np.array(window_positions)
@@ -135,14 +147,13 @@ class VehicleDetector(MidiControlManager):
         pos_window_indexes = np.where(score > self.decision_threshold.value)[0]
         pos_window_positions = window_positions[pos_window_indexes]
 
-        for idx,(x,y) in zip(pos_window_indexes, pos_window_positions):
-            window_rect = Rectangle.from_point_and_size(Point(x,y),Point(1.0,1.0)*window_size)
+        result = []
+        for idx, (x, y) in zip(pos_window_indexes, pos_window_positions):
+            window_rect = Rectangle.from_point_and_size(Point(x, y), Point(1.0, 1.0) * window_size)
             i_score = score[idx]
-            self.detections.append((window_rect,i_score))
-            if False and self.frame_count < 125:
-                false_positive_img = crop_img(self.cropped_img, window_rect.x1, window_rect.y1, window_rect.x2, window_rect.y2)
-                save_img(false_positive_img, "false_positives/%d/%04d-%04d" % (window_size,self.frame_count, self.false_positive_count))
-                self.false_positive_count += 1
+            result.append((window_rect, i_score))
+
+        return result
 
 
     def draw_detections(self):
