@@ -77,7 +77,7 @@ class DataSource(object):
             for window_size in X:
                 if w < window_size:
                     continue
-                elif label == 0 and window_size < w:
+                elif label == 0 and window_size < w and "Extras" in img_file_name:
                     scaled_img = scale_img(img,window_size / w * 2)
                 else:
                     scaled_img = scale_img(img,window_size / w)
