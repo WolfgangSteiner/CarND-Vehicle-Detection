@@ -10,11 +10,12 @@ from heatmap import HeatMap
 from extract_features import calc_hog, extract_features
 import Utils
 from multiprocessing.dummy import Pool
+from functools import partial
 
 set_logging(True)
 
 class VehicleDetector(MidiControlManager):
-    def __init__(self):
+    def __init__(self, save_false_positives=False):
         super().__init__()
         self.scale = 2
         self.crop_y_rel = np.array((0.55,0.90))
@@ -24,9 +25,13 @@ class VehicleDetector(MidiControlManager):
         self.decision_threshold = MidiControl(self,"decision_threshold", 80, 0.0, 0.0, 8.0)
         self.heatmap = None
         self.pool = Pool(8)
+        self.save_false_positives = save_false_positives
+        self.detected_cars = []
 
-        for size in (64,32,16):
-            Utils.mkdir("false_positives/%d" % size)
+        if self.save_false_positives:
+            self.false_positive_dir_name = "false_positives_%s" % Utils.date_file_name().split(".")[0]
+            for size in (64,32,16):
+                Utils.mkdir("%s/%d" % (self.false_positive_dir_name,size))
 
 
     def load_svc(self):
@@ -102,7 +107,8 @@ class VehicleDetector(MidiControlManager):
     def sliding_window(self):
         self.detections = []
         self.false_positive_count = 0
-        for size,y1,y2,delta_y in ((64,0,0,16),(32,0,16,8),(16,0,8,4)):
+        #for size,y1,y2,delta_y in ((64,0,0,32),(48,16,16,24), (32,0,32,8), (24,0,24,6),(16,0,16,4)):
+        for size, y1, y2, delta_y in ((64, 0, 0, 32), (32, 0, 32, 8), (16, 0, 16, 4)):
             result = self.sliding_window_impl(size, y1, y2, delta_y)
             for window_rect, i_score in result:
                 self.detections.append((window_rect,i_score))
@@ -120,8 +126,10 @@ class VehicleDetector(MidiControlManager):
         window_positions = []
         #func = partial(self.sliding_window_horizontal, hog_for_slice, window_size, ppc, )
 
-        for j in range(0, num_windows_y + 1, inc_j):
-            X_i, window_positions_i = self.sliding_window_horizontal(hog_for_slice, window_size, ppc, y1, j)
+        func = partial(self.sliding_window_horizontal, hog_for_slice, window_size, ppc, y1)
+        j_range = range(0, num_windows_y + 1, inc_j)
+
+        for X_i, window_positions_i in map(func, j_range):
             X.extend(X_i)
             window_positions.extend(window_positions_i)
 
@@ -137,14 +145,20 @@ class VehicleDetector(MidiControlManager):
         for (x, y), score in zip(pos_window_positions, pos_window_scores):
             window_rect = Rectangle.from_point_and_size(Point(x, y), Point(1.0, 1.0) * window_size)
             result.append((window_rect, score))
+            if self.save_false_positives and self.is_false_positive_candidate(window_rect):
+                window_img = crop_img(self.cropped_img, window_rect.x1, window_rect.y1, window_rect.x2, window_rect.y2)
+                save_img(window_img, "%s/%d/%04d-%04d" % (self.false_positive_dir_name, window_size, self.frame_count, self.false_positive_count))
+                self.false_positive_count+=1
 
         return result
 
 
- #           if False and self.frame_count < 125:
- #               false_positive_img = crop_img(self.cropped_img, window_rect.x1, window_rect.y1, window_rect.x2, window_rect.y2)
- #               save_img(false_positive_img, "false_positives/%d/%04d-%04d" % (window_size,self.frame_count, self.false_positive_count))
- #               self.false_positive_count += 1
+    def is_false_positive_candidate(self, window_rect):
+        if self.frame_count < 125:
+            return True
+        else:
+            w = self.cropped_image_size[1]
+            return window_rect.x1 < w - w // 3
 
 
     def sliding_window_horizontal(self, hog_for_slice, window_size, ppc, y1, j):
@@ -168,7 +182,8 @@ class VehicleDetector(MidiControlManager):
     def draw_detections(self):
         for r,_ in self.detections:
             offset = Point(0, self.crop_y[0])
-            draw_rectangle(self.frame, r.translate(offset)*4, color=cvcolor.gray50)
+            color = cvcolor.pink if self.is_false_positive_candidate(r) else cvcolor.gray50
+            draw_rectangle(self.frame, r.translate(offset)*4, color=color)
 
 
     def draw_bboxes(self):

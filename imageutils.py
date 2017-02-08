@@ -138,7 +138,7 @@ def expand_mask(m):
 
 
 def crop_img(img, x1, y1, x2, y2):
-    return img[y1:y2,x1:x2,:]
+    return img[int(y1):int(y2),int(x1):int(x2),:]
 
 
 def AND(*args):

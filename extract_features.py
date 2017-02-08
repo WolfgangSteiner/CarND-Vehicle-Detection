@@ -27,9 +27,10 @@ def extract_features(img_yuv, window_size, hog_data=None, hog_pos=None):
         j,i = hog_pos
         hog_feature_array = [np.ravel(hog_data[i_ch][j:j+hog_window_size, i:i+hog_window_size, :, :, :]) for i_ch in range(3)]
 
-    hog_feature = np.concatenate(hog_feature_array, axis=0)
-    color_hist = calc_color_histogram(img_yuv)
-    spacial_color_bins = calc_spatial_color_binning(img_yuv)
-    return np.concatenate((hog_feature, color_hist, spacial_color_bins), axis=0)
+    features = []
+    features.append(np.concatenate(hog_feature_array, axis=0))
+    #features.append(color_hist = calc_color_histogram(img_yuv))
+    features.append(calc_spatial_color_binning(img_yuv))
+    return np.concatenate(features, axis=0)
 
 

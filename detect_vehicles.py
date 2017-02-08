@@ -24,6 +24,7 @@ parser.add_argument('-t', action="store", dest="t1", default="0", type=str)
 parser.add_argument('-s', action="store", dest="scale", default=4, type=int)
 parser.add_argument('--render', action="store_true", dest="render")
 parser.add_argument('--annotate', action="store_true", dest="annotate")
+parser.add_argument('--save-false-positives', action="store_true", dest="save_false_positives")
 args = parser.parse_args()
 
 t_array = args.t1.split(".")
@@ -33,7 +34,7 @@ if len(t_array) == 2:
 
 args.video_file += "_video.mp4"
 
-vdetector = VehicleDetector()
+vdetector = VehicleDetector(save_false_positives=args.save_false_positives)
 vdetector.scale=args.scale
 
 def process_frame(frame, fps=None):
@@ -68,6 +69,11 @@ def process_frame(frame, fps=None):
 
     if fps is not None:
         grid.text((0.3,0), "%5.2ffps"%fps, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
+
+    grid.text((0.0,0.5), "d_thres = %.2f"%vdetector.decision_threshold.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
+    grid.text((0.0,1.0), "h_thres = %.2f"%vdetector.heatmap.threshold.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
+    grid.text((0.0,1.5), "h_A     = %.2f"%vdetector.heatmap.A.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
+
 
 
     if args.render:
