@@ -1,16 +1,18 @@
 import glob
-from imageutils import *
-import Utils
+import os
+import pickle
+import random
+from functools import partial
+from itertools import product
+from multiprocessing import Pool as ThreadPool
+
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC
-import os
-import pickle
+
+import Utils
 from extract_features import extract_features
-from itertools import product
-import random
-from multiprocessing import Pool as ThreadPool
-from functools import partial
+from imageutils import *
 
 
 class DataSource(object):
@@ -176,7 +178,7 @@ def train_classifier(size):
     return (my_scaler, my_svc)
 
 
-with ThreadPool(processes=1) as pool:
+with ThreadPool(processes=len(source.sizes)) as pool:
     result = pool.map(train_classifier, source.X_train.keys())
     pool.close()
     pool.join()
