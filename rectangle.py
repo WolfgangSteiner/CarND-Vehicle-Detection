@@ -87,6 +87,13 @@ class Rectangle(object):
         return Rectangle(self.x1 + point.x, self.y1 + point.y, self.x2 - point.x, self.y2 - point.y)
 
 
+    def expand(self, e):
+        if type(e) == Point:
+            return Rectangle(self.x1 - e.x, self.y1 - e.y, self.x2 + e.x, self.y2 + e.y)
+        elif type(e) == int:
+            return Rectangle(self.x1 - e, self.y1 - e, self.x2 + e, self.y2 + e)
+
+
     def shrink_with_factor(self, point):
         return Rectangle.from_center_and_size(self.center(), self.size().scale(point))
 

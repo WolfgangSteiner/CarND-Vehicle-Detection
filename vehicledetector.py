@@ -11,6 +11,7 @@ from extract_features import calc_hog, extract_features
 import Utils
 from multiprocessing.dummy import Pool
 from functools import partial
+from cardetection import CarDetection
 
 set_logging(True)
 
@@ -51,6 +52,7 @@ class VehicleDetector(MidiControlManager):
         self.cropped_img_yuv = bgr2yuv(self.cropped_img)
         self.sliding_window()
         self.update_heatmap()
+        self.update_car_detections()
         self.draw_detections()
         self.draw_bboxes()
         self.draw_grid_on_cropped_img()
@@ -187,9 +189,12 @@ class VehicleDetector(MidiControlManager):
 
 
     def draw_bboxes(self):
-        for r in self.heatmap.get_bboxes():
-            offset = Point(0, self.crop_y[0])
-            draw_rectangle(self.frame, r.translate(offset)*4, color=cvcolor.green)
+        for r in map(self.transform_rect, self.heatmap.get_bboxes()):
+            draw_rectangle(self.frame, r, color=cvcolor.green)
+
+        for d in self.detected_cars:
+            draw_rectangle(self.frame, d.current_rect(), color=cvcolor.orange, thickness=2)
+            draw_rectangle(self.frame, d.current_rect_of_influence(), color=cvcolor.orange, thickness=1)
 
 
     def update_heatmap(self):
@@ -198,3 +203,26 @@ class VehicleDetector(MidiControlManager):
 
         self.heatmap.add_detections(self.detections)
         self.heatmap.update_map()
+
+
+    def transform_rect(self, rect):
+        offset = Point(0, self.crop_y[0])
+        return rect.translate(offset) * self.scale
+
+
+    def update_car_detections(self):
+        rect_list = [self.transform_rect(r) for r in self.heatmap.get_bboxes()]
+        [d.tick() for d in self.detected_cars]
+
+        # sort existing car detections by area: bigger rectangles represent closer cars
+        self.detected_cars = sorted(self.detected_cars, key=lambda d: d.current_area(), reverse=True)
+
+        for d in self.detected_cars:
+            rect_list = d.update(rect_list)
+
+        # remaining rectangles are newly detected vehicles:
+        for r in rect_list:
+            self.detected_cars.append(CarDetection(r))
+
+        # remove old detections
+        self.detected_cars = [d for d in self.detected_cars if d.is_alive()]

@@ -14,7 +14,7 @@ def calc_color_histogram(img_yuv):
 
 def calc_spatial_color_binning(img_yuv):
     h,w = img_yuv.shape[0:2]
-    factor = 8 / h
+    factor = 16 / h
     return np.concatenate([np.ravel(scale_img(img_yuv[:,:,i_ch],factor)) for i_ch in range(3)], axis=0).astype(np.float32)
 
 
@@ -29,7 +29,7 @@ def extract_features(img_yuv, window_size, hog_data=None, hog_pos=None):
 
     features = []
     features.append(np.concatenate(hog_feature_array, axis=0))
-    #features.append(color_hist = calc_color_histogram(img_yuv))
+    features.append(calc_color_histogram(img_yuv))
     features.append(calc_spatial_color_binning(img_yuv))
     return np.concatenate(features, axis=0)
 

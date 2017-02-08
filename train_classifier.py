@@ -75,6 +75,8 @@ class DataSource(object):
             for window_size in X:
                 if w < window_size:
                     continue
+                elif label == 0 and window_size < w:
+                    scaled_img = scale_img(img,window_size / w * 2)
                 else:
                     scaled_img = scale_img(img,window_size / w)
 
@@ -174,7 +176,7 @@ def train_classifier(size):
     return (my_scaler, my_svc)
 
 
-with ThreadPool(processes=len(source.X_train.keys())) as pool:
+with ThreadPool(processes=1) as pool:
     result = pool.map(train_classifier, source.X_train.keys())
     pool.close()
     pool.join()
