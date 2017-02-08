@@ -19,7 +19,7 @@ class DataSource(object):
     def __init__(self, purge=False):
         self.image_dirs_vehicles = ("vehicles",)
         self.image_dirs_non_vehicles = ("non-vehicles", "false_positives*")
-        self.sizes = (64,48,32,24,16)
+        self.sizes = (64, 32, 16)
 
         if os.path.exists("train_data.pickle") and not purge:
             self.load_pickled_data()
@@ -124,7 +124,7 @@ class DataSource(object):
     def flip_image(self, img, label):
         result = [img]
         result.append(img[:,::-1,:])
-        if True and label == 0:
+        if False and label == 0:
             result.append(img[::-1,:,:])
             result.append(img[::-1,::-1,:])
 
