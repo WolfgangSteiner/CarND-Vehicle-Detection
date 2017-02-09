@@ -5,7 +5,8 @@ import numpy as np
 
 def calc_hog(ch, ppc):
     return skimage.feature.hog(ch, orientations=9, pixels_per_cell=(ppc, ppc), cells_per_block=(2, 2),
-                               visualise=False, transform_sqrt=True, feature_vector=False, normalise=None).astype(np.float32)
+                               visualise=False, transform_sqrt=True, feature_vector=False,
+                               normalise=None).astype(np.float32)
 
 
 def calc_color_histogram(img_yuv):
@@ -14,7 +15,7 @@ def calc_color_histogram(img_yuv):
 
 def calc_spatial_color_binning(img_yuv):
     h,w = img_yuv.shape[0:2]
-    factor = 16 / h
+    factor = 8 / h
     return np.concatenate([np.ravel(scale_img(img_yuv[:,:,i_ch],factor)) for i_ch in range(3)], axis=0).astype(np.float32)
 
 

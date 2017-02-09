@@ -5,7 +5,7 @@ import random
 from functools import partial
 from itertools import product
 from multiprocessing import Pool as ThreadPool
-
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC
@@ -19,7 +19,7 @@ class DataSource(object):
     def __init__(self, purge=False):
         self.image_dirs_vehicles = ("vehicles",)
         self.image_dirs_non_vehicles = ("non-vehicles", "false_positives*")
-        self.sizes = (64, 32, 16)
+        self.sizes = (64, 48, 32, 24, 16)
 
         if os.path.exists("train_data.pickle") and not purge:
             self.load_pickled_data()
@@ -77,7 +77,7 @@ class DataSource(object):
             for window_size in X:
                 if w < window_size:
                     continue
-                elif label == 0 and window_size < w and "Extras" in img_file_name:
+                elif False and label == 0 and window_size < w and "Extras" in img_file_name:
                     scaled_img = scale_img(img,window_size / w * 2)
                 else:
                     scaled_img = scale_img(img,window_size / w)
@@ -115,7 +115,11 @@ class DataSource(object):
                     X[size].extend(X_dict[size])
 
         for size in X:
-            y[size] = np.ones(len(X[size])) * label
+            if label == 1:
+                y[size] = np.ones(len(X[size]))
+            else:
+                y[size] = np.zeros(len(X[size]))
+
             X[size] = np.array(X[size])
 
         return X, y
@@ -172,8 +176,11 @@ def train_classifier(size):
     my_scaler.fit(source.X_train[size])
     print(my_scaler.mean_.shape)
     my_svc = LinearSVC(verbose=False, dual=False)
-    my_svc.fit(my_scaler.transform(source.X_train[size]), source.y_train[size])
-    score = my_svc.score(my_scaler.transform(source.X_val[size]), source.y_val[size])
+    X_train = my_scaler.transform(source.X_train[size])
+    my_svc.fit(X_train, source.y_train[size])
+    my_svc_sigmoid = CalibratedClassifierCV(my_svc, cv=2, method='sigmoid')
+    my_svc_sigmoid.fit(X_train, source.y_train[size])
+    score = my_svc_sigmoid.score(my_scaler.transform(source.X_val[size]), source.y_val[size])
     print("Size: %d:" % size, score)
     return (my_scaler, my_svc)
 

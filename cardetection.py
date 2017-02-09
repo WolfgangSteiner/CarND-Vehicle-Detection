@@ -7,6 +7,7 @@ class CarDetection(object):
         self.current_size = rect.size()
         self.A = 0.25
         self.ticks_since_last_update = 0
+        self.age = 0
 
 
     def position(self):
@@ -15,6 +16,7 @@ class CarDetection(object):
 
     def tick(self):
         self.ticks_since_last_update += 1
+        self.age += 1
 
 
     def update(self, rect_list):

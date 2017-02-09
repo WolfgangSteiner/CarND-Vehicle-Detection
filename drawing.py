@@ -5,6 +5,9 @@ from point import Point
 from rectangle import Rectangle
 
 def put_text(img, text, pos, font=cv2.FONT_HERSHEY_PLAIN, color=cvcolor.green, scale=1.0):
+    if type(pos) == Point:
+        pos = pos.astype(np.int)
+
     (tw,th),baseline = cv2.getTextSize(text, font, scale, 1)
     cv2.putText(img, text, (pos[0],pos[1]+2*th), font, scale, color)
     return tw,th

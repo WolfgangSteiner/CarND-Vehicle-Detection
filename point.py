@@ -27,6 +27,14 @@ class Point(object):
     __rmul__ = __mul__
 
 
+    def __truediv__(self, factor):
+        return Point(self.x / factor, self.y / factor)
+
+
+    def __floordiv__(self, factor):
+        return Point(int(self.x) // factor, int(self.y) // factor)
+
+
     def unscale(self, scale):
         return Point(self.x / scale.x, self.y / scale.y)
 

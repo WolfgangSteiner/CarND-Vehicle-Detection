@@ -28,6 +28,8 @@ class VehicleDetector(MidiControlManager):
         self.pool = Pool(8)
         self.save_false_positives = save_false_positives
         self.detected_cars = []
+        self.hog_y_1 = None
+        self.hog_y_2 = None
 
         if self.save_false_positives:
             self.false_positive_dir_name = "false_positives_%s" % Utils.date_file_name().split(".")[0]
@@ -56,6 +58,7 @@ class VehicleDetector(MidiControlManager):
         self.draw_detections()
         self.draw_bboxes()
         self.draw_grid_on_cropped_img()
+        #self.calc_test_hog()
 
         return self.frame
 
@@ -110,35 +113,28 @@ class VehicleDetector(MidiControlManager):
         self.detections = []
         self.false_positive_count = 0
         #for size,y1,y2,delta_y in ((64,0,0,32),(48,16,16,24), (32,0,32,8), (24,0,24,6),(16,0,16,4)):
-        for size, y1, y2, delta_y in ((64, 0, 0, 32), (32, 0, 32, 8), (16, 0, 16, 4)):
+        for size, y1, y2, delta_y in ((64,0,0,32), (48, 16, 16, 12), (32, 24, 32, 8), (24, 12, 24, 6), (16, 0, 16, 4)):
             result = self.sliding_window_impl(size, y1, y2, delta_y)
             for window_rect, i_score in result:
                 self.detections.append((window_rect,i_score))
 
 
     def sliding_window_impl(self, window_size, y1, y2, delta_y):
-        slice = self.cropped_img[y1:y2+window_size,:,:]
         ppc = 16 * window_size // 64
-        hog_for_slice = [calc_hog(ch,ppc) for ch in split_yuv(slice)]
-
-        delta_j = window_size//ppc - 1
         X = []
-        inc_j = delta_y // ppc
-        num_windows_y = (hog_for_slice[0].shape[0] - delta_j)
         window_positions = []
-        #func = partial(self.sliding_window_horizontal, hog_for_slice, window_size, ppc, )
 
-        func = partial(self.sliding_window_horizontal, hog_for_slice, window_size, ppc, y1)
-        j_range = range(0, num_windows_y + 1, inc_j)
-
-        for X_i, window_positions_i in map(func, j_range):
-            X.extend(X_i)
-            window_positions.extend(window_positions_i)
+        y = y1
+        while y <= y2:
+            X_row, window_positions_row = self.sliding_window_horizontal(None, window_size, ppc, y)
+            X.extend(X_row)
+            window_positions.extend(window_positions_row)
+            y += delta_y
 
         X = np.array(X)
         window_positions = np.array(window_positions)
         normalized_feature_vector = self.scaler[window_size].transform(X)
-        score = self.svc[window_size].decision_function(normalized_feature_vector)
+        score = self.svc[window_size].predict(normalized_feature_vector)
         pos_window_indexes = np.where(score > self.decision_threshold.value)[0]
         pos_window_positions = window_positions[pos_window_indexes]
         pos_window_scores = score[pos_window_indexes]
@@ -155,30 +151,42 @@ class VehicleDetector(MidiControlManager):
         return result
 
 
-    def is_false_positive_candidate(self, window_rect):
-        if self.frame_count < 125:
-            return True
-        else:
-            w = self.cropped_image_size[1]
-            return window_rect.x1 < w - w // 3
+    def sliding_window_horizontal(self, hog_for_slice, window_size, ppc, y):
+        h,w = self.cropped_image_size
 
-
-    def sliding_window_horizontal(self, hog_for_slice, window_size, ppc, y1, j):
         X = []
-        inc_i = 2
-        y = y1 + j * ppc
-        delta_i = window_size//ppc - 1
-        num_windows_x = (hog_for_slice[0].shape[1] - delta_i)
-        window_positions = []
+        delta_x = window_size  // 4
+        x = 0
+        window_positions=[]
 
-        for i in range(0, num_windows_x + 1, inc_i):
-            x = i * ppc
-            window_yuv = bgr2yuv(self.cropped_img[y:y+window_size,x:x+window_size])
-            X.append(extract_features(window_yuv, window_size, hog_for_slice, (j,i)))
+        while x <= w - window_size:
+            window_yuv = self.cropped_img_yuv[y:y+window_size,x:x+window_size]
+            #X1 = extract_features(window_yuv, window_size, hog_for_slice, (j,i))
+            X.append(extract_features(window_yuv, window_size))
             window_positions.append(np.array((x,y)))
+            x+=delta_x
 
         return X,window_positions
 
+
+    def is_false_positive_candidate(self, window_rect):
+        w,h = img_size(self.frame)
+        r = self.transform_rect(window_rect)
+
+        if self.frame_count < 125:
+            return True
+        elif r.x2 < w - w //3:
+            return True
+        elif any(map(lambda d: d.current_rect().intersects(r), self.detected_cars)):
+            return False
+        elif self.frame_count < 150 and r.x1 > w * 3 // 4:
+            return False
+        elif self.frame_count > 675 and self.frame_count < 700 and r.x1 > w * 3 // 4:
+            return False
+
+        return True
+
+            #window_rect.x1 < w - w // 3
 
 
     def draw_detections(self):
@@ -193,8 +201,13 @@ class VehicleDetector(MidiControlManager):
             draw_rectangle(self.frame, r, color=cvcolor.green)
 
         for d in self.detected_cars:
-            draw_rectangle(self.frame, d.current_rect(), color=cvcolor.orange, thickness=2)
+            r = d.current_rect()
+            w,h = r.size() / 4
+            x,y = r.p1()
+            draw_rectangle(self.frame, r, color=cvcolor.orange, thickness=2)
             draw_rectangle(self.frame, d.current_rect_of_influence(), color=cvcolor.orange, thickness=1)
+            put_text(self.frame,"%d" % w, Point(x+2*w-8,y-24), color=cvcolor.orange)
+            put_text(self.frame,"%d" % h, Point(x-16,y+2*h-16), color=cvcolor.orange)
 
 
     def update_heatmap(self):
@@ -226,3 +239,28 @@ class VehicleDetector(MidiControlManager):
 
         # remove old detections
         self.detected_cars = [d for d in self.detected_cars if d.is_alive()]
+
+
+    def calc_test_hog(self):
+        import skimage.feature
+
+        def my_hog(img):
+            return skimage.feature.hog(img, orientations=9, pixels_per_cell=(ppc, ppc),
+                                       cells_per_block=(2, 2),
+                                       visualise=True, transform_sqrt=False,
+                                       feature_vector=False,normalise=None)[1]
+
+        ppc = 16
+        ws = 64
+        w,h = img_size(self.cropped_img)
+        self.hog_y_1 = my_hog(self.cropped_img_yuv[:,:,0])
+        self.hog_y_2 = np.zeros_like(self.hog_y_1)
+        delta_ij = 3
+        for y in range(0,h,ws):
+            for x in range(0,w,ws):
+                hog = my_hog(self.cropped_img_yuv[y:y+ws,x:x+ws,0])
+                self.hog_y_2[y:y+ws,x:x+ws] = hog
+
+        self.hog_y_12 = (np.abs(self.hog_y_1 - self.hog_y_2)*128.0).astype(np.uint8)
+        self.hog_y_1 = (self.hog_y_1 * 32).astype(np.uint8)
+        self.hog_y_2 = (self.hog_y_2 * 32).astype(np.uint8)

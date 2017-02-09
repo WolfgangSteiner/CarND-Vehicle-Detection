@@ -53,14 +53,17 @@ def process_frame(frame, fps=None):
         new_frame = annotated_frame
     else:
         pass
-        grid = CV2Grid.with_img(out_frame,(4,4))
-        grid.grid_size[1] = 64
-        grid.paste_img(annotated_frame, (0,0), scale=0.75)
-        grid.paste_img(vdetector.cropped_img, (3,0), scale=args.scale/4.0)
+        grid = CV2Grid.with_img(out_frame,(4,5))
+        #grid.grid_size[1] = 64
+        grid.paste_img(annotated_frame, (0,0), scale=1.0)
+        grid.paste_img(vdetector.cropped_img, (0,4), scale=args.scale/4.0)
         #grid.paste_img(vdetector.hog_image, (1,6), scale=args.scale/4.0)
-        grid.paste_img((vdetector.heatmap.map * 8).astype(np.uint8), (3,1), scale=args.scale/4.0)
-        grid.paste_img((vdetector.heatmap.thresholded_map * 255.0).astype(np.uint8), (3,2), scale=args.scale/4.0)
-        grid.paste_img((vdetector.heatmap.label_map * 32.0).astype(np.uint8), (3,3), scale=args.scale/4.0)
+        grid.paste_img((vdetector.heatmap.map * 8).astype(np.uint8), (1,4), scale=args.scale/4.0)
+        grid.paste_img((vdetector.heatmap.thresholded_map * 255.0).astype(np.uint8), (2,4), scale=args.scale/4.0)
+        grid.paste_img((vdetector.heatmap.label_map * 32.0).astype(np.uint8), (3,4), scale=args.scale/4.0)
+        #grid.paste_img(vdetector.hog_y_1, (0,4), scale=args.scale / 4.0)
+        #grid.paste_img(vdetector.hog_y_2, (1,4),scale=args.scale / 4.0)
+        #grid.paste_img(vdetector.hog_y_12, (2,4),scale=args.scale / 4.0)
 
     new_frame = grid.canvas
 
@@ -70,9 +73,9 @@ def process_frame(frame, fps=None):
     if fps is not None:
         grid.text((0.3,0), "%5.2ffps"%fps, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
 
-    grid.text((0.0,0.5), "d_thres = %.2f"%vdetector.decision_threshold.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
-    grid.text((0.0,1.0), "h_thres = %.2f"%vdetector.heatmap.threshold.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
-    grid.text((0.0,1.5), "h_A     = %.2f"%vdetector.heatmap.A.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
+    grid.text((0.0,0.25), "d_thres = %.2f"%vdetector.decision_threshold.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
+    grid.text((0.0,0.5), "h_thres = %.2f"%vdetector.heatmap.threshold.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
+    grid.text((0.0,0.75), "h_A     = %.2f"%vdetector.heatmap.A.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
 
 
 
@@ -89,7 +92,7 @@ frame_skip = 1
 start_frame = args.t1
 key_wait = args.delay
 
-out_frame = new_img((1280,720))
+out_frame = new_img((1280,900))
 
 #cv2.startWindowThread()
 #cv2.namedWindow("test")
@@ -103,11 +106,11 @@ frames = []
 #frame_rate=cap.get(cv2.CAP_PROP_FPS)
 
 
-window = pyglet.window.Window(width=1280, height=720)
+window = pyglet.window.Window(width=1280, height=900)
 
 @window.event
 def on_draw():
-    image = pyglet.image.ImageData(1280,720, 'BGR', out_frame[::-1,:,:].tostring())
+    image = pyglet.image.ImageData(1280,900, 'BGR', out_frame[::-1,:,:].tostring())
     image.blit(0, 0)
 
 counter = -1
