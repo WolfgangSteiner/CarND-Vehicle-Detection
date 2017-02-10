@@ -36,7 +36,7 @@ class CarDetection(object):
 
 
     def current_rect(self):
-        return Rectangle.from_center_and_size(self.current_position, self.current_size)
+        return Rectangle(center=self.current_position, size=self.current_size)
 
 
     def current_rect_of_influence(self):

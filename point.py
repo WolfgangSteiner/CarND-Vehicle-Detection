@@ -35,6 +35,13 @@ class Point(object):
         return Point(int(self.x) // factor, int(self.y) // factor)
 
 
+    def __getitem__(self, item):
+        if not type(item) == int or item > 1:
+            raise ValueError
+
+        return self.x if item==0 else self.y
+
+
     def unscale(self, scale):
         return Point(self.x / scale.x, self.y / scale.y)
 

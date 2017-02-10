@@ -2,11 +2,82 @@ from point import Point
 import numpy as np
 
 class Rectangle(object):
-    def __init__(self, x1, y1, x2, y2):
-        self.x1 = min(x1, x2)
-        self.y1 = min(y1, y2)
-        self.x2 = max(x1, x2)
-        self.y2 = max(y1, y2)
+    def __init__(self, *args, **kwargs):
+        self.x1 = None
+        self.x2 = None
+        self.y1 = None
+        self.y2 = None
+
+        if len(args) == 4:
+            self.x1 = min(args[0], args[2])
+            self.y1 = min(args[1], args[3])
+            self.x2 = max(args[0], args[2])
+            self.y2 = max(args[1], args[3])
+            return
+        elif len(args) == 2:
+            self.set_p1(args[0])
+            self.set_p2(args[1])
+        elif 'pos' in kwargs:
+            if not 'size' in kwargs:
+                raise ValueError
+            self.set_p1(kwargs['pos'])
+            size = kwargs['size']
+            if type(size) in (int,float):
+                size = (size,size)
+            self.x2 = self.x1 + size[0]
+            self.y2 = self.y1 + size[1]
+            return
+        elif 'center' in kwargs:
+            if not 'size' in kwargs:
+                raise ValueError
+            center = kwargs['center']
+            size = kwargs['size']
+            if type(size) in (int,float):
+                size = (size,size)
+            self.x1 = center[0] - size[0] / 2
+            self.x2 = center[0] + size[0] / 2
+            self.y1 = center[1] - size[1] / 2
+            self.y2 = center[1] + size[1] / 2
+            return
+
+        if 'x1' in kwargs:
+            self.x1 = kwargs['x1']
+        if 'x2' in kwargs:
+            self.x2 = kwargs['x2']
+        if 'y1' in kwargs:
+            self.y1 = kwargs['y1']
+        if 'y2' in kwargs:
+            self.y2 = kwargs['y2']
+        if 'x' in kwargs:
+            self.x1 = kwarg['x']
+        if 'y' in kwargs:
+            self.y1 = kwargs['y']
+        if 'size' in kwargs:
+            size = kwargs['size']
+            if type(size) in (int,float):
+                size = (size,size)
+            if self.x1 is not None:
+                self.x2 = self.x1 + size[0]
+            elif self.x2 is not None:
+                self.x1 = self.x2 - size[0]
+
+            if self.y1 is not None:
+                self.y2 = self.y1 + size[1]
+            elif self.y2 is not None:
+                self.y1 = self.y2 - size[1]
+
+        if any([c is None for c in (self.x1,self.x2,self.y1,self.y2)]):
+            raise ValueError
+
+
+    def set_p1(self, p):
+        self.x1 = p[0]
+        self.y1 = p[1]
+
+
+    def set_p2(self, p):
+        self.x2 = p[0]
+        self.y2 = p[1]
 
 
     def p1(self):
@@ -27,21 +98,6 @@ class Rectangle(object):
 
     def as_array(self):
         return [self.x1, self.y1, self.x2, self.y2]
-
-
-    @staticmethod
-    def from_points(p1, p2):
-        return Rectangle(p1.x, p1.y, p2.x, p2.y)
-
-
-    @staticmethod
-    def from_point_and_size(pos, size):
-        return Rectangle.from_points(pos, pos + size)
-
-
-    @staticmethod
-    def from_center_and_size(center, size):
-        return Rectangle.from_points(center - 0.5 * size, center + 0.5 * size)
 
 
     def intersects_horizontally(self, other_rect):

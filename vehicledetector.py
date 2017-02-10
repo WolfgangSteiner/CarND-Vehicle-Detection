@@ -52,6 +52,8 @@ class VehicleDetector(MidiControlManager):
         img = scale_img(self.frame, 1 / self.scale)
         self.cropped_img = self.crop_img(img)
         self.cropped_img_yuv = bgr2yuv(self.cropped_img)
+
+        self.initialize_scan()
         self.sliding_window()
         self.update_heatmap()
         self.update_car_detections()
@@ -109,10 +111,12 @@ class VehicleDetector(MidiControlManager):
         return img[self.crop_y[0]:self.crop_y[1]]
 
 
-    def sliding_window(self):
+    def initialize_scan(self):
         self.detections = []
         self.false_positive_count = 0
-        #for size,y1,y2,delta_y in ((64,0,0,32),(48,16,16,24), (32,0,32,8), (24,0,24,6),(16,0,16,4)):
+
+
+    def sliding_window(self):
         for size, y1, y2, delta_y in ((64,0,0,32), (48, 16, 16, 24), (32, 8, 16, 8), (24, 0, 12, 12), (16, 0, 8, 8)):
             result = self.sliding_window_impl(size, y1, y2, delta_y)
             for window_rect, i_score in result:
@@ -126,12 +130,11 @@ class VehicleDetector(MidiControlManager):
 
         y = y1
         while y <= y2:
-            X_row, window_positions_row = self.sliding_window_horizontal(None, window_size, ppc, y)
-            X.extend(X_row)
+            window_positions_row = self.sliding_window_horizontal(None, window_size, ppc, y)
             window_positions.extend(window_positions_row)
             y += delta_y
 
-        return self.evaluate_windows(X, window_positions, window_size)
+        return self.evaluate_windows(window_positions, window_size)
 
 
     def sliding_window_horizontal(self, hog_for_slice, window_size, ppc, y):
@@ -143,30 +146,34 @@ class VehicleDetector(MidiControlManager):
         window_positions=[]
 
         while x <= w - window_size:
-            window_yuv = self.cropped_img_yuv[y:y+window_size,x:x+window_size]
-            #X1 = extract_features(window_yuv, window_size, hog_for_slice, (j,i))
-            X.append(extract_features(window_yuv, window_size))
-            window_positions.append(np.array((x,y)))
+            window_positions.append(Rectangle(pos=(x,y), size=window_size))
             x+=delta_x
 
-        return X,window_positions
+        return window_positions
 
 
-    def evaluate_windows(self, X, window_positions, window_size):
+
+    def evaluate_windows(self, windows, window_size):
+        X = []
+
+        for w in windows:
+            window_yuv = self.cropped_img_yuv[w.y1:w.y2,w.x1:w.x2]
+            X.append(extract_features(window_yuv, window_size))
+
         X = np.array(X)
-        window_positions = np.array(window_positions)
+
+        windows = np.array(windows)
         normalized_feature_vector = self.scaler[window_size].transform(X)
         score = self.svc[window_size].predict(normalized_feature_vector)
         pos_window_indexes = np.where(score > self.decision_threshold.value)[0]
-        pos_window_positions = window_positions[pos_window_indexes]
+        pos_windows = windows[pos_window_indexes]
         pos_window_scores = score[pos_window_indexes]
 
         result = []
-        for (x, y), score in zip(pos_window_positions, pos_window_scores):
-            window_rect = Rectangle.from_point_and_size(Point(x, y), Point(1.0, 1.0) * window_size)
-            result.append((window_rect, score))
-            if self.save_false_positives and self.is_false_positive_candidate(window_rect):
-                window_img = crop_img(self.cropped_img, window_rect.x1, window_rect.y1, window_rect.x2, window_rect.y2)
+        for r, score in zip(pos_windows, pos_window_scores):
+            result.append((r, score))
+            if self.save_false_positives and self.is_false_positive_candidate(r):
+                window_img = crop_img(self.cropped_img, r.x1, r.y1, r.x2, r.y2)
                 save_img(window_img, "%s/%d/%04d-%04d" % (self.false_positive_dir_name, window_size, self.frame_count, self.false_positive_count))
                 self.false_positive_count+=1
 
