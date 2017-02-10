@@ -131,6 +131,28 @@ class VehicleDetector(MidiControlManager):
             window_positions.extend(window_positions_row)
             y += delta_y
 
+        return self.evaluate_windows(X, window_positions, window_size)
+
+
+    def sliding_window_horizontal(self, hog_for_slice, window_size, ppc, y):
+        h,w = self.cropped_image_size
+
+        X = []
+        delta_x = window_size // 2
+        x = 0
+        window_positions=[]
+
+        while x <= w - window_size:
+            window_yuv = self.cropped_img_yuv[y:y+window_size,x:x+window_size]
+            #X1 = extract_features(window_yuv, window_size, hog_for_slice, (j,i))
+            X.append(extract_features(window_yuv, window_size))
+            window_positions.append(np.array((x,y)))
+            x+=delta_x
+
+        return X,window_positions
+
+
+    def evaluate_windows(self, X, window_positions, window_size):
         X = np.array(X)
         window_positions = np.array(window_positions)
         normalized_feature_vector = self.scaler[window_size].transform(X)
@@ -151,22 +173,9 @@ class VehicleDetector(MidiControlManager):
         return result
 
 
-    def sliding_window_horizontal(self, hog_for_slice, window_size, ppc, y):
-        h,w = self.cropped_image_size
 
-        X = []
-        delta_x = window_size // 2
-        x = 0
-        window_positions=[]
 
-        while x <= w - window_size:
-            window_yuv = self.cropped_img_yuv[y:y+window_size,x:x+window_size]
-            #X1 = extract_features(window_yuv, window_size, hog_for_slice, (j,i))
-            X.append(extract_features(window_yuv, window_size))
-            window_positions.append(np.array((x,y)))
-            x+=delta_x
 
-        return X,window_positions
 
 
     def is_false_positive_candidate(self, window_rect):
