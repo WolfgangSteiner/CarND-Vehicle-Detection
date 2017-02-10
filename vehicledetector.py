@@ -113,7 +113,7 @@ class VehicleDetector(MidiControlManager):
         self.detections = []
         self.false_positive_count = 0
         #for size,y1,y2,delta_y in ((64,0,0,32),(48,16,16,24), (32,0,32,8), (24,0,24,6),(16,0,16,4)):
-        for size, y1, y2, delta_y in ((64,0,0,32), (48, 16, 16, 12), (32, 24, 32, 8), (24, 12, 24, 6), (16, 0, 16, 4)):
+        for size, y1, y2, delta_y in ((64,0,0,32), (48, 16, 16, 24), (32, 8, 16, 8), (24, 0, 12, 12), (16, 0, 8, 8)):
             result = self.sliding_window_impl(size, y1, y2, delta_y)
             for window_rect, i_score in result:
                 self.detections.append((window_rect,i_score))
@@ -155,7 +155,7 @@ class VehicleDetector(MidiControlManager):
         h,w = self.cropped_image_size
 
         X = []
-        delta_x = window_size  // 4
+        delta_x = window_size // 2
         x = 0
         window_positions=[]
 
