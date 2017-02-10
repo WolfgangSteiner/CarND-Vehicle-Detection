@@ -205,7 +205,40 @@ class Rectangle(object):
 
 
     def translate(self, p):
-       return self + p
+        if not type(p) == Point:
+            p = Point(p[0],p[1])
+        return self + p
+
+
+    def translate_to_fit_into_rect(self, r):
+        w,h = self.size()
+        if self.x1 < r.x1:
+            x1,x2 = r.x1, r.x1 + w
+        elif self.x2 > r.x2:
+            x1,x2 = r.x2 - w, r.x2
+        else:
+            x1,x2 = self.x1,self.x2
+
+        if self.y1 < r.y1:
+            y1,y2 = r.y1, r.y1 + h
+        elif self.y2 > r.y2:
+            y1,y2 = r.y2 - h, r.y2
+        else:
+            y1,y2 = self.y1,self.y2
+
+        return Rectangle(x1,y1,x2,y2)
+
+
+    def mirror_x(self, x=0):
+        return Rectangle((x - self.x2) + x, self.y1, (x - self.x1) + x, self.y2)
+
+
+    def mirror_x(self, x=0):
+        return Rectangle((x - self.x2) + x, self.y1, (x - self.x1) + x, self.y2)
+
+
+    def mirror_y(self, y=0):
+        return Rectangle(self.x1, (y - self.y2) + y, self.x2, (y - self.y1) + y)
 
 
     def __add__(self, a):
@@ -230,6 +263,14 @@ class Rectangle(object):
 
     def __repr__(self):
         return "(%.2f, %.2f, %.2f, %.2f)" % (self.x1,self.y1,self.x2,self.y2)
+
+
+    def __floordiv__(self, factor):
+        return Rectangle(self.x1 // factor, self.y1 // factor, self.x2 // factor,self.y2 // factor)
+
+
+    def __realdiv__(self, factor):
+        return Rectangle(self.x1 / factor, self.y1 / factor, self.x2 / factor,self.y2 / factor)
 
 
     def is_vertical_edge_intersected_by_line(self, x, line_p1, line_p2):

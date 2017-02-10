@@ -5,7 +5,7 @@ class CarDetection(object):
     def __init__(self, rect):
         self.current_position = rect.center()
         self.current_size = rect.size()
-        self.A = 0.25
+        self.A = 0.125
         self.ticks_since_last_update = 0
         self.age = 0
 

@@ -12,6 +12,7 @@ import Utils
 from multiprocessing.dummy import Pool
 from functools import partial
 from cardetection import CarDetection
+from itertools import product
 
 set_logging(True)
 
@@ -54,9 +55,13 @@ class VehicleDetector(MidiControlManager):
         self.cropped_img_yuv = bgr2yuv(self.cropped_img)
 
         self.initialize_scan()
-        self.sliding_window()
+        self.scan_edges()
+        self.scan_vehicle_bboxes()
+#        self.sliding_window()
+
         self.update_heatmap()
         self.update_car_detections()
+        self.draw_evaluated_windows()
         self.draw_detections()
         self.draw_bboxes()
         self.draw_grid_on_cropped_img()
@@ -113,6 +118,7 @@ class VehicleDetector(MidiControlManager):
 
     def initialize_scan(self):
         self.detections = []
+        self.evaluated_windows = []
         self.false_positive_count = 0
 
 
@@ -134,7 +140,7 @@ class VehicleDetector(MidiControlManager):
             window_positions.extend(window_positions_row)
             y += delta_y
 
-        return self.evaluate_windows(window_positions, window_size)
+        return self.evaluate_windows_of_size(window_positions, window_size)
 
 
     def sliding_window_horizontal(self, hog_for_slice, window_size, ppc, y):
@@ -152,14 +158,19 @@ class VehicleDetector(MidiControlManager):
         return window_positions
 
 
+    def evaluate_window(self, window):
+        window_size = window.height()
+        window_yuv = self.cropped_img_yuv[int(window.y1):int(window.y2),int(window.x1):int(window.x2)]
+        X = np.array(extract_features(window_yuv, window_size))
+        normalized_feature_vector = self.scaler[window_size].transform(X)
+        return self.svc[window_size].predict(normalized_feature_vector)[0]
 
-    def evaluate_windows(self, windows, window_size):
+
+    def evaluate_windows_of_size(self, windows, window_size):
         X = []
-
         for w in windows:
-            window_yuv = self.cropped_img_yuv[w.y1:w.y2,w.x1:w.x2]
+            window_yuv = self.cropped_img_yuv[int(w.y1):int(w.y2),int(w.x1):int(w.x2)]
             X.append(extract_features(window_yuv, window_size))
-
         X = np.array(X)
 
         windows = np.array(windows)
@@ -170,6 +181,7 @@ class VehicleDetector(MidiControlManager):
         pos_window_scores = score[pos_window_indexes]
 
         result = []
+        self.evaluated_windows.extend(windows)
         for r, score in zip(pos_windows, pos_window_scores):
             result.append((r, score))
             if self.save_false_positives and self.is_false_positive_candidate(r):
@@ -180,9 +192,61 @@ class VehicleDetector(MidiControlManager):
         return result
 
 
+    def evaluate_windows(self, windows):
+        result = []
+        for ws in (64,48,32,24,16):
+            windows_of_size = [w for w in windows if int(w.height()) == ws]
+            if not windows_of_size:
+                continue
+            result.extend(self.evaluate_windows_of_size(windows_of_size, ws))
+        return result
 
 
+    def scan_edges(self):
+        h, w = self.cropped_image_size
+        windows = self.left_edge_window_rects()
+        windows.extend([r.mirror_x(w//2) for r in windows])
+        result = self.evaluate_windows(windows)
+        for window_rect, i_score in result:
+            self.detections.append((window_rect, i_score))
 
+
+    def left_edge_window_rects(self):
+        result = []
+        for ws,x,y in (48,0,16),(48,0,12),(32,0,16),(32,0,12),(32,0,8),(32,0,4),(32,0,0):
+            result.append(Rectangle(pos=(0,y),size=ws))
+        return result
+
+
+    def window_size_for_rect(self, rect):
+        for ws in reversed((16,24,32,48,64)):
+            if ws <= 0.95 * rect.height():
+                return ws
+        return 16
+
+
+    def scan_vehicle_bboxes(self):
+        h,w = self.cropped_image_size
+        img_rect = Rectangle(pos=(0,0), size=(w,h))
+        windows = []
+        for d in self.detected_cars:
+            d_rect = (d.current_rect() // self.scale).translate((0,-self.crop_y[0]))
+            ws = self.window_size_for_rect(d_rect)
+            w = Rectangle(center=d_rect.center(), size=ws).translate_to_fit_into_rect(img_rect)
+            dx = ws // 4
+            dy = ws // 8
+            for dx,dy in product((-ws,-2*dx,-dx,0,dx,2*dx,ws),(-2*dy,-dy,0,dy,2*dy)):
+                r = w.translate((dx,dy))
+                if img_rect.contains(r):
+                    windows.append(r)
+
+        if  self.detected_cars and not windows:
+            raise ValueError
+
+        if windows:
+            result = self.evaluate_windows(windows)
+            for window_rect, i_score in result:
+                self.detections.append((window_rect, i_score))
 
 
     def is_false_positive_candidate(self, window_rect):
@@ -199,10 +263,7 @@ class VehicleDetector(MidiControlManager):
             return False
         elif self.frame_count > 675 and self.frame_count < 700 and r.x1 > w * 3 // 4:
             return False
-
         return True
-
-            #window_rect.x1 < w - w // 3
 
 
     def draw_detections(self):
@@ -210,6 +271,12 @@ class VehicleDetector(MidiControlManager):
             offset = Point(0, self.crop_y[0])
             color = cvcolor.pink if self.is_false_positive_candidate(r) else cvcolor.gray50
             draw_rectangle(self.frame, r.translate(offset)*4, color=color)
+
+
+    def draw_evaluated_windows(self):
+        for w in self.evaluated_windows:
+            offset = Point(0, self.crop_y[0])
+            draw_rectangle(self.frame, w.translate(offset)*4, color=cvcolor.gray70)
 
 
     def draw_bboxes(self):
