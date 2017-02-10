@@ -10,9 +10,7 @@ from heatmap import HeatMap
 from extract_features import calc_hog, extract_features
 import Utils
 from multiprocessing.dummy import Pool
-from functools import partial
 from cardetection import CarDetection
-from itertools import product
 
 set_logging(True)
 
