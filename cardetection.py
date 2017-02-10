@@ -7,7 +7,9 @@ class CarDetection(object):
         self.current_size = rect.size()
         self.A = 0.125
         self.ticks_since_last_update = 0
+        self.num_detections = 0
         self.age = 0
+        self.is_real = False
 
 
     def position(self):
@@ -17,6 +19,8 @@ class CarDetection(object):
     def tick(self):
         self.ticks_since_last_update += 1
         self.age += 1
+        if self.num_detections > 5:
+            self.is_real = True
 
 
     def update(self, rect_list):
@@ -30,6 +34,7 @@ class CarDetection(object):
             self.current_position = self.A * r.center() + (1.0 - self.A) * self.current_position
             self.current_size = self.A * r.size() + (1.0 - self.A) * self.current_size
             self.ticks_since_last_update = 0
+            self.num_detections += 1
             return sorted_list[0:-1]
         else:
             return rect_list
@@ -48,7 +53,7 @@ class CarDetection(object):
 
 
     def is_alive(self):
-        return self.ticks_since_last_update < 5
+        return (self.ticks_since_last_update < 50 and self.is_real) or (self.ticks_since_last_update < 5 and not self.is_real)
 
 
     def current_area(self):

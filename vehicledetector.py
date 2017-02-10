@@ -220,7 +220,7 @@ class VehicleDetector(MidiControlManager):
 
     def window_size_for_rect(self, rect):
         for ws in reversed((16,24,32,48,64)):
-            if ws <= 0.95 * rect.height():
+            if ws <= 1.0 * rect.height():
                 return ws
         return 16
 
@@ -232,13 +232,28 @@ class VehicleDetector(MidiControlManager):
         for d in self.detected_cars:
             d_rect = (d.current_rect() // self.scale).translate((0,-self.crop_y[0]))
             ws = self.window_size_for_rect(d_rect)
-            w = Rectangle(center=d_rect.center(), size=ws).translate_to_fit_into_rect(img_rect)
             dx = ws // 4
-            dy = ws // 8
-            for dx,dy in product((-ws,-2*dx,-dx,0,dx,2*dx,ws),(-2*dy,-dy,0,dy,2*dy)):
-                r = w.translate((dx,dy))
-                if img_rect.contains(r):
+            dy = ws // 4
+
+            pos = d_rect.center()
+            rect_w,rect_h = d_rect.size()
+            rect_w = max(rect_w, ws)
+            rect_h = max(rect_h, ws)
+            d_rect = Rectangle(center=pos,size=(rect_w,rect_h))
+
+            y1 = max(0, d_rect.y1 - 2*dy)
+            y2 = min(h, d_rect.y2 + 2*dy)
+            x1 = max(0, d_rect.x1 - 2*dx)
+            x2 = min(w, d_rect.x2 + 2*dx)
+
+            y = y1
+            while y <= y2 - ws:
+                x = x1
+                while x <= x2 - ws:
+                    r = Rectangle(pos=(x,y), size=ws)
                     windows.append(r)
+                    x+=dx
+                y+=dy
 
         if  self.detected_cars and not windows:
             raise ValueError
