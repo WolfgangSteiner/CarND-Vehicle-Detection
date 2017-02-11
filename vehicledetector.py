@@ -21,14 +21,15 @@ class VehicleDetector(MidiControlManager):
         self.crop_y_rel = np.array((0.55,0.90))
         self.crop_y = None
         self.grid = None
-        self.svc,self.scaler = self.load_svc()
         self.decision_threshold = MidiControl(self,"decision_threshold", 80, 0.0, 0.0, 8.0)
+        self.load_svc()
         self.heatmap = None
         self.pool = Pool(8)
         self.save_false_positives = save_false_positives
         self.detected_cars = []
         self.hog_y_1 = None
         self.hog_y_2 = None
+        self.annotate = True
 
         if self.save_false_positives:
             self.false_positive_dir_name = "false_positives_%s" % Utils.date_file_name().split(".")[0]
@@ -38,10 +39,9 @@ class VehicleDetector(MidiControlManager):
 
     def load_svc(self):
         with open("svc.pickle", "rb") as f:
-            return pickle.load(f)
-
-        raise ValueError
-        return None
+            self.svc, self.scaler = pickle.load(f)
+            self.svc_sizes = list(self.svc.keys())
+            print(self.svc_sizes)
 
 
     def process(self, frame, frame_count):
@@ -59,6 +59,7 @@ class VehicleDetector(MidiControlManager):
 
         self.update_heatmap()
         self.update_car_detections()
+        self.draw_detected_cars()
         self.draw_evaluated_windows()
         self.draw_detections()
         self.draw_bboxes()
@@ -91,11 +92,6 @@ class VehicleDetector(MidiControlManager):
             draw_line(self.grid, (w22, h), vanishing_point, color=cvcolor.white, antialias=False)
 
             draw_line(self.grid, self.left_edge[0].astype(np.int), self.left_edge[1].astype(np.int), color=cvcolor.pink, antialias=False)
-
-            # draw_line(self.grid, (w11,h), (w11,0), color=cvcolor.white, antialias=False)
-            # draw_line(self.grid, (w12,h), (w12,0), color=cvcolor.white, antialias=False)
-            # draw_line(self.grid, (w21,h), (w21,0), color=cvcolor.white, antialias=False)
-            # draw_line(self.grid, (w22,h), (w22,0), color=cvcolor.white, antialias=False)
 
         self.cropped_img = blend_img(self.cropped_img, self.grid, 0.25)
 
@@ -192,7 +188,7 @@ class VehicleDetector(MidiControlManager):
 
     def evaluate_windows(self, windows):
         result = []
-        for ws in (64,48,32,24,16):
+        for ws in self.svc_sizes:
             windows_of_size = [w for w in windows if int(w.height()) == ws]
             if not windows_of_size:
                 continue
@@ -202,30 +198,43 @@ class VehicleDetector(MidiControlManager):
 
     def scan_edges(self):
         h, w = self.cropped_image_size
-        windows = self.left_edge_window_rects()
+        windows = self.left_edge_windows()
         windows.extend([r.mirror_x(w//2) for r in windows])
+        windows.extend(self.top_edge_windows())
         result = self.evaluate_windows(windows)
         for window_rect, i_score in result:
             self.detections.append((window_rect, i_score))
 
 
-    def left_edge_window_rects(self):
+    def left_edge_windows(self):
         result = []
         for ws,x,y in (48,0,16),(48,0,12),(32,0,16),(32,0,12),(32,0,8),(32,0,4),(32,0,0):
-            result.append(Rectangle(pos=(0,y),size=ws))
+            result.append(Rectangle(pos=(x,y),size=ws))
+        return result
+
+
+    def top_edge_windows(self):
+        h,w = self.cropped_image_size
+        ws = 16
+        result = []
+        x1, x2 = 0, w - ws
+        x, y = x1, 4
+        while x <= x2:
+            result.append(Rectangle(pos=(x,y),size=ws))
+            x += ws / 2
+
         return result
 
 
     def window_size_for_rect(self, rect):
-        for ws in reversed((16,24,32,48,64)):
-            if ws <= 1.0 * rect.height():
+        for ws in reversed(self.svc_sizes):
+            if ws >= 0.65 * rect.height():
                 return ws
-        return 16
+        return 64
 
 
     def scan_vehicle_bboxes(self):
         h,w = self.cropped_image_size
-        img_rect = Rectangle(pos=(0,0), size=(w,h))
         windows = []
         for d in self.detected_cars:
             d_rect = (d.current_rect() // self.scale).translate((0,-self.crop_y[0]))
@@ -239,8 +248,8 @@ class VehicleDetector(MidiControlManager):
             rect_h = max(rect_h, ws)
             d_rect = Rectangle(center=pos,size=(rect_w,rect_h))
 
-            y1 = max(0, d_rect.y1 - 2*dy)
-            y2 = min(h, d_rect.y2 + 2*dy)
+            y1 = max(0, d_rect.y1 - dy)
+            y2 = min(h, d_rect.y2 + dy)
             x1 = max(0, d_rect.x1 - 2*dx)
             x2 = min(w, d_rect.x2 + 2*dx)
 
@@ -250,11 +259,8 @@ class VehicleDetector(MidiControlManager):
                 while x <= x2 - ws:
                     r = Rectangle(pos=(x,y), size=ws)
                     windows.append(r)
-                    x+=dx
-                y+=dy
-
-        if  self.detected_cars and not windows:
-            raise ValueError
+                    x+= dx
+                y+= dy
 
         if windows:
             result = self.evaluate_windows(windows)
@@ -280,30 +286,45 @@ class VehicleDetector(MidiControlManager):
 
 
     def draw_detections(self):
-        for r,_ in self.detections:
-            offset = Point(0, self.crop_y[0])
-            color = cvcolor.pink if self.is_false_positive_candidate(r) else cvcolor.gray50
-            draw_rectangle(self.frame, r.translate(offset)*4, color=color)
+        if self.annotate:
+            for r,_ in self.detections:
+                offset = Point(0, self.crop_y[0])
+                color = cvcolor.pink if self.is_false_positive_candidate(r) else cvcolor.gray50
+                draw_rectangle(self.frame, r.translate(offset)*self.scale, color=color)
 
 
     def draw_evaluated_windows(self):
-        for w in self.evaluated_windows:
-            offset = Point(0, self.crop_y[0])
-            draw_rectangle(self.frame, w.translate(offset)*4, color=cvcolor.gray70)
+        if self.annotate:
+            for w in self.evaluated_windows:
+                offset = Point(0, self.crop_y[0])
+                draw_rectangle(self.frame, w.translate(offset)*self.scale, color=cvcolor.gray70)
 
 
     def draw_bboxes(self):
-        for r in map(self.transform_rect, self.heatmap.get_bboxes()):
-            draw_rectangle(self.frame, r, color=cvcolor.green)
+        if self.annotate:
+            for r in map(self.transform_rect, self.heatmap.get_bboxes()):
+                draw_rectangle(self.frame, r, color=cvcolor.green)
 
         for d in self.detected_cars:
+            if not d.is_real:
+                continue
             r = d.current_rect()
             w,h = r.size() / 4
             x,y = r.p1()
             draw_rectangle(self.frame, r, color=cvcolor.orange, thickness=2)
-            draw_rectangle(self.frame, d.current_rect_of_influence(), color=cvcolor.orange, thickness=1)
-            put_text(self.frame,"%d" % w, Point(x+2*w-8,y-24), color=cvcolor.orange)
-            put_text(self.frame,"%d" % h, Point(x-16,y+2*h-16), color=cvcolor.orange)
+
+            if self.annotate:
+                put_text(self.frame,"%d" % w, Point(x+2*w-8,y-24), color=cvcolor.orange)
+                put_text(self.frame,"%d" % h, Point(x-16,y+2*h-16), color=cvcolor.orange)
+
+
+    def draw_detected_cars(self):
+        for i,d in enumerate(self.detected_cars):
+            r = d.current_rect()
+            car_img = crop_img(self.frame, r.x1,r.y1,r.x2,r.y2)
+            size, margin = 128, 32
+            car_img = cv2.resize(car_img, (size,size))
+            paste_img(self.frame,car_img, (margin,(size + margin) * i + margin))
 
 
     def update_heatmap(self):

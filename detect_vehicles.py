@@ -40,80 +40,52 @@ vdetector.scale=args.scale
 def process_frame(frame, fps=None):
     global counter
 
-#    if not args.render:
-#        pipeline.poll()
-
-#    detector.process(frame)
-#    detector.annotate(frame)
-
     frame = rgb2bgr(frame)
     annotated_frame = vdetector.process(frame, counter)
 
     if args.render and not args.annotate:
         new_frame = annotated_frame
     else:
-        pass
         grid = CV2Grid.with_img(out_frame,(4,5))
-        #grid.grid_size[1] = 64
         grid.paste_img(annotated_frame, (0,0), scale=1.0)
-        grid.paste_img(vdetector.cropped_img, (0,4), scale=args.scale/4.0)
-        #grid.paste_img(vdetector.hog_image, (1,6), scale=args.scale/4.0)
-        grid.paste_img((vdetector.heatmap.map * 8).astype(np.uint8), (1,4), scale=args.scale/4.0)
-        grid.paste_img((vdetector.heatmap.thresholded_map * 255.0).astype(np.uint8), (2,4), scale=args.scale/4.0)
-        grid.paste_img((vdetector.heatmap.label_map * 32.0).astype(np.uint8), (3,4), scale=args.scale/4.0)
-        #grid.paste_img(vdetector.hog_y_1, (0,4), scale=args.scale / 4.0)
-        #grid.paste_img(vdetector.hog_y_2, (1,4),scale=args.scale / 4.0)
-        #grid.paste_img(vdetector.hog_y_12, (2,4),scale=args.scale / 4.0)
+
+        if args.annotate:
+            grid.paste_img(vdetector.cropped_img, (0,4), scale=args.scale/4.0)
+            grid.paste_img((vdetector.heatmap.map * 32).astype(np.uint8), (1,4), scale=args.scale/4.0)
+            grid.paste_img((vdetector.heatmap.thresholded_map * 255.0).astype(np.uint8), (2,4), scale=args.scale/4.0)
+            grid.paste_img((vdetector.heatmap.label_map * 32.0).astype(np.uint8), (3,4), scale=args.scale/4.0)
 
     new_frame = grid.canvas
 
-
     grid.text((0,0), "%02d.%02d"%(counter // frame_rate, counter % frame_rate), text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
 
-    if fps is not None:
+    if not args.render and fps is not None:
         grid.text((0.3,0), "%5.2ffps"%fps, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
 
-    grid.text((0.0,0.25), "d_thres = %.2f"%vdetector.decision_threshold.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
-    grid.text((0.0,0.5), "h_thres = %.2f"%vdetector.heatmap.threshold.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
-    grid.text((0.0,0.75), "h_A     = %.2f"%vdetector.heatmap.A.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
-
-
+    if args.annotate:
+        grid.text((0.0,0.25), "d_thres = %.2f"%vdetector.decision_threshold.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
+        grid.text((0.0,0.5), "h_thres = %.2f"%vdetector.heatmap.threshold.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
+        grid.text((0.0,0.75), "h_A     = %.2f"%vdetector.heatmap.A.value, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
 
     if args.render:
         new_frame = bgr2rgb(new_frame)
 
     return new_frame
 
-
 clip = VideoFileClip(args.video_file)
-#cap = cv2.VideoCapture(args.video_file)
-counter = 0
+counter = -1
 frame_skip = 1
 start_frame = args.t1
 key_wait = args.delay
-
-out_frame = new_img((1280,900))
-
-#cv2.startWindowThread()
-#cv2.namedWindow("test")
-#screen = pygame.display.set_mode((1280,720))
-
-
-frames = []
-
-#clock = pygame.time.Clock()
-#fps = 0
-#frame_rate=cap.get(cv2.CAP_PROP_FPS)
-
-
-window = pyglet.window.Window(width=1280, height=900)
+height = 900 if args.annotate else 720
+out_frame = new_img((1280,height))
+window = pyglet.window.Window(width=1280, height=height)
 
 @window.event
 def on_draw():
-    image = pyglet.image.ImageData(1280,900, 'BGR', out_frame[::-1,:,:].tostring())
+    image = pyglet.image.ImageData(1280,height, 'BGR', out_frame[::-1,:,:].tostring())
     image.blit(0, 0)
 
-counter = -1
 
 if args.render:
      out_file_name = args.video_file.split(".")[0] + "_annotated.mp4"
@@ -134,50 +106,3 @@ else:
 
     if not args.render:
         pyglet.app.exit()
-
-
-
-# if args.render:
-#     out_file_name = args.video_file.split(".")[0] + "_annotated.mp4"
-#     annotated_clip = clip.fl_image(process_frame)
-#     annotated_clip.write_videofile(out_file_name, fps=frame_rate, audio=False)
-# else:
-#     while True:
-#         has_frame, frame = cap.read()
-#         if not has_frame:
-#             break
-#
-#
-#
-#
-#     #for frame in clip.iter_frames():
-#         # if (counter % frame_skip) or (counter < start_frame):
-#         #     counter += 1
-#         #     continue
-#
-#         clock.tick()
-#         new_frame = process_frame(frame)
-#
-#         pimage = pygame.image.frombuffer(new_frame.tostring(), (1280,720), "RGB")
-#         screen.blit(pimage, (0,0))
-#         pygame.display.flip()
-#
-#         print(clock.get_fps())
-#
-#         #cv2.imshow("test",new_frame)
-#         #key = cv2.waitKey(1)
-#         # key = None
-#         # if key == ord('.'):
-#         #     dir_name = detector.save_screenshots()
-#         #     save_img(new_frame, "output_frame", dir_name)
-#         #     print("Screenshots saved in %s." % dir_name)
-#         # elif key == ord('+'):
-#         #     key_wait = max(10, key_wait // 2)
-#         # elif key == ord('-'):
-#         #     key_wait = min(2000, key_wait * 2)
-#         # elif key == ord(' '):
-#         #     print("PAUSE...")
-#         #     while True:
-#         #         key = cv2.waitKey(10)
-#         #         if key == ord(' '):
-#         #             break

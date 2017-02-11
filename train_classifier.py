@@ -19,7 +19,7 @@ class DataSource(object):
     def __init__(self, purge=False):
         self.image_dirs_vehicles = ("vehicles",)
         self.image_dirs_non_vehicles = ("non-vehicles", "false_positives*")
-        self.sizes = (64, 48, 32, 24, 16)
+        self.sizes = (64, 56, 52, 48, 44, 40, 36, 32, 28, 24, 20, 16)
 
         if os.path.exists("train_data.pickle") and not purge:
             self.load_pickled_data()
@@ -164,7 +164,6 @@ class DataSource(object):
 
 
 source = DataSource(purge=True)
-
 svc = source.empty_dict()
 scaler = source.empty_dict()
 res = {}
@@ -185,7 +184,7 @@ def train_classifier(size):
     return (my_scaler, my_svc)
 
 
-with ThreadPool(processes=len(source.sizes)) as pool:
+with ThreadPool(processes=min(8, len(source.sizes))) as pool:
     result = pool.map(train_classifier, source.X_train.keys())
     pool.close()
     pool.join()

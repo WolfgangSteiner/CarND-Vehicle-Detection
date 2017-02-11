@@ -53,7 +53,7 @@ class CarDetection(object):
 
 
     def is_alive(self):
-        return (self.ticks_since_last_update < 50 and self.is_real) or (self.ticks_since_last_update < 5 and not self.is_real)
+        return (self.ticks_since_last_update < 25 and self.is_real) or (self.ticks_since_last_update < 5 and not self.is_real)
 
 
     def current_area(self):

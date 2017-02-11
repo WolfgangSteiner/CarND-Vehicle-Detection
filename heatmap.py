@@ -9,7 +9,7 @@ class HeatMap(object):
         self.new_map = np.zeros_like(self.map)
         self.thresholded_map = np.zeros_like(self.map)
         self.A = MidiControl(midimanager,"heatmap_A", 82, 0.25, 0.0, 1.0)
-        self.threshold = MidiControl(midimanager,"heatmap_threshold", 81, 0.35, 0.0, 8.0)
+        self.threshold = MidiControl(midimanager,"heatmap_threshold", 81, 1.25, 0.0, 8.0)
 
 
     def add_detections(self, detections):
