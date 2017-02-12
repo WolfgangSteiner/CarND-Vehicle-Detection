@@ -143,11 +143,17 @@ class Rectangle(object):
         return Rectangle(self.x1 + point.x, self.y1 + point.y, self.x2 - point.x, self.y2 - point.y)
 
 
-    def expand(self, e):
-        if type(e) == Point:
-            return Rectangle(self.x1 - e.x, self.y1 - e.y, self.x2 + e.x, self.y2 + e.y)
-        elif type(e) == int:
-            return Rectangle(self.x1 - e, self.y1 - e, self.x2 + e, self.y2 + e)
+    def expand(self, *args):
+        if len(args)==2:
+            return Rectangle(self.x1 - args[0], self.y1 - args[1], self.x2 + args[0], self.y2 + args[1])
+        elif len(args)==4:
+            return Rectangle(self.x1 - args[0], self.y1 - args[1], self.x2 + args[2], self.y2 + args[3])
+        else:
+            e = args[0]
+            if type(e) == Point:
+                return Rectangle(self.x1 - e.x, self.y1 - e.y, self.x2 + e.x, self.y2 + e.y)
+            elif type(e) == int:
+                return Rectangle(self.x1 - e, self.y1 - e, self.x2 + e, self.y2 + e)
 
 
     def shrink_with_factor(self, point):
@@ -193,6 +199,12 @@ class Rectangle(object):
 
     def height(self):
         return self.size().y
+
+
+    def aspect_ratio(self):
+        if self.height() == 0:
+            return 0
+        return self.width() / self.height()
 
 
     def center(self):

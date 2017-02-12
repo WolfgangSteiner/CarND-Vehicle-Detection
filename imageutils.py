@@ -65,6 +65,11 @@ def show_img(img, title=""):
     cv2.imshow(title, img)
     cv2.waitKey()
 
+
+def join_bgr(b,g,r):
+    return np.stack((b,g,r), axis=2)
+
+
 def bgr2gray(img):
     return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 

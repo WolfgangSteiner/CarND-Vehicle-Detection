@@ -19,13 +19,13 @@ def calc_spatial_color_binning(img_yuv):
     return np.concatenate([np.ravel(scale_img(img_yuv[:,:,i_ch],factor)) for i_ch in range(3)], axis=0).astype(np.float32)
 
 
-def extract_features(img_yuv, window_size, hog_data=None, hog_pos=None):
-    ppc = 16  * window_size // 64
+def extract_features(img_yuv, window_size, ppc=16, hog_data=None, hog_pos=None):
+    ppc = ppc * window_size // 64
     y,u,v = split_channels(img_yuv)
     #y = cv2.equalizeHist(y)
 
     features = []
-    features.append(calc_hog(u,ppc, False))
+    features.append(calc_hog(u,ppc, True))
     features.append(calc_hog(y,ppc, False))
     features.append(calc_hog(v,ppc, False))
     features.append(calc_color_histogram(img_yuv))

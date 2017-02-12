@@ -1,16 +1,13 @@
 from moviepy.editor import VideoFileClip
-import cv2
-import numpy as np
 import argparse
-import cvcolor
 from drawing import *
-import Utils
 from  imageutils import *
 from cv2grid import CV2Grid
-#import pygame
 import pyglet
-import sys
 from vehicledetector import VehicleDetector
+from LaneDetector import LaneDetector
+from FilterPipeline import HSVPipeline,YUVPipeline
+from calibrate_camera import undistort_image
 
 
 frame_rate = 25
@@ -25,6 +22,9 @@ parser.add_argument('-s', action="store", dest="scale", default=4, type=int)
 parser.add_argument('--render', action="store_true", dest="render")
 parser.add_argument('--annotate', action="store_true", dest="annotate")
 parser.add_argument('--save-false-positives', action="store_true", dest="save_false_positives")
+parser.add_argument("--no-lane-lines", action="store_false", dest="lane_lines")
+parser.add_argument("--no-multires", action="store_false", dest="use_multires")
+parser.add_argument("--hires", action="store_true", dest="hires")
 args = parser.parse_args()
 
 t_array = args.t1.split(".")
@@ -34,32 +34,46 @@ if len(t_array) == 2:
 
 args.video_file += "_video.mp4"
 
-vdetector = VehicleDetector(save_false_positives=args.save_false_positives)
+vdetector = VehicleDetector(
+    save_false_positives=args.save_false_positives,
+    use_multires_classifiers=args.use_multires,
+    use_hires_classifier=args.hires)
+
 vdetector.scale=args.scale
+vdetector.annotate = args.annotate
+
+if args.lane_lines:
+    pipeline = YUVPipeline()
+    lane_detector = LaneDetector(pipeline)
 
 def process_frame(frame, fps=None):
     global counter
 
     frame = rgb2bgr(frame)
+    frame = undistort_image(frame)
+
     annotated_frame = vdetector.process(frame, counter)
 
-    if args.render and not args.annotate:
+    if args.lane_lines:
+        lane_detector.process(frame)
+        annotated_frame = lane_detector.annotate(annotated_frame)
+
+    if args.render or not args.annotate:
         new_frame = annotated_frame
     else:
         grid = CV2Grid.with_img(out_frame,(4,5))
         grid.paste_img(annotated_frame, (0,0), scale=1.0)
 
         if args.annotate:
-            grid.paste_img(vdetector.cropped_img, (0,4), scale=args.scale/4.0)
-            grid.paste_img((vdetector.heatmap.map * 32).astype(np.uint8), (1,4), scale=args.scale/4.0)
+            grid.paste_img(vdetector.cropped_frame, (0, 4), scale=args.scale / 4.0)
+            grid.paste_img((vdetector.annotated_heatmap), (1,4), scale=args.scale/4.0)
             grid.paste_img((vdetector.heatmap.thresholded_map * 255.0).astype(np.uint8), (2,4), scale=args.scale/4.0)
             grid.paste_img((vdetector.heatmap.label_map * 32.0).astype(np.uint8), (3,4), scale=args.scale/4.0)
+        new_frame = grid.canvas
 
-    new_frame = grid.canvas
+        grid.text((0,0), "%02d.%02d"%(counter // frame_rate, counter % frame_rate), text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
 
-    grid.text((0,0), "%02d.%02d"%(counter // frame_rate, counter % frame_rate), text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
-
-    if not args.render and fps is not None:
+    if not args.render and fps is not None and args.annotate:
         grid.text((0.3,0), "%5.2ffps"%fps, text_color=cvcolor.white, horizontal_align="left", vertical_align="top", scale=1.0)
 
     if args.annotate:
@@ -71,6 +85,7 @@ def process_frame(frame, fps=None):
         new_frame = bgr2rgb(new_frame)
 
     return new_frame
+
 
 clip = VideoFileClip(args.video_file)
 counter = -1
@@ -85,7 +100,6 @@ window = pyglet.window.Window(width=1280, height=height)
 def on_draw():
     image = pyglet.image.ImageData(1280,height, 'BGR', out_frame[::-1,:,:].tostring())
     image.blit(0, 0)
-
 
 if args.render:
      out_file_name = args.video_file.split(".")[0] + "_annotated.mp4"

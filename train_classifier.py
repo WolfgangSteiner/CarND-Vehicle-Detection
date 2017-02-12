@@ -20,6 +20,7 @@ class DataSource(object):
         self.image_dirs_vehicles = ("vehicles",)
         self.image_dirs_non_vehicles = ("non-vehicles", "false_positives*")
         self.sizes = (64, 56, 52, 48, 44, 40, 36, 32, 28, 24, 20, 16)
+        #self.sizes = (64,)
 
         if os.path.exists("train_data.pickle") and not purge:
             self.load_pickled_data()
@@ -84,7 +85,7 @@ class DataSource(object):
 
                 for augmented_img in self.augment_image(scaled_img, window_size, label):
                     augmented_img_yuv = bgr2yuv(augmented_img)
-                    X[window_size].append(extract_features(augmented_img_yuv, window_size))
+                    X[window_size].append(extract_features(augmented_img_yuv, window_size, ppc=16))
 
             return X
 
@@ -181,7 +182,7 @@ def train_classifier(size):
     my_svc_sigmoid.fit(X_train, source.y_train[size])
     score = my_svc_sigmoid.score(my_scaler.transform(source.X_val[size]), source.y_val[size])
     print("Size: %d:" % size, score)
-    return (my_scaler, my_svc)
+    return (my_scaler, my_svc_sigmoid)
 
 
 with ThreadPool(processes=min(8, len(source.sizes))) as pool:
@@ -195,5 +196,5 @@ for idx,size in enumerate(svc.keys()):
     svc[size] = result[idx][1]
 
 
-with open("svc.pickle", "wb") as f:
+with open("svc_multires.pickle", "wb") as f:
     pickle.dump((svc,scaler), f)

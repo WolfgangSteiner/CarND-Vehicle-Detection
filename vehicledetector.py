@@ -4,7 +4,6 @@ import pickle
 from rectangle import Rectangle
 from point import Point
 import cvcolor
-from calibrate_camera import undistort_image
 from midicontrol import MidiControlManager, MidiControl, set_logging
 from heatmap import HeatMap
 from extract_features import calc_hog, extract_features
@@ -15,13 +14,15 @@ from cardetection import CarDetection
 set_logging(True)
 
 class VehicleDetector(MidiControlManager):
-    def __init__(self, save_false_positives=False):
+    def __init__(self, save_false_positives=False, use_multires_classifiers=True, use_hires_classifier=False):
         super().__init__()
+        self.use_multires_classifiers = use_multires_classifiers and not use_hires_classifier
+        self.use_hires_classifier=use_hires_classifier
         self.scale = 2
         self.crop_y_rel = np.array((0.55,0.90))
         self.crop_y = None
         self.grid = None
-        self.decision_threshold = MidiControl(self,"decision_threshold", 80, 0.0, 0.0, 8.0)
+        self.decision_threshold = MidiControl(self,"decision_threshold", 80, 0.95, 0.0, 1.0)
         self.load_svc()
         self.heatmap = None
         self.pool = Pool(8)
@@ -30,6 +31,7 @@ class VehicleDetector(MidiControlManager):
         self.hog_y_1 = None
         self.hog_y_2 = None
         self.annotate = True
+        self.annotated_heatmap = None
 
         if self.save_false_positives:
             self.false_positive_dir_name = "false_positives_%s" % Utils.date_file_name().split(".")[0]
@@ -38,19 +40,21 @@ class VehicleDetector(MidiControlManager):
 
 
     def load_svc(self):
-        with open("svc.pickle", "rb") as f:
+        filename = "svc_multires.pickle" if not self.use_hires_classifier else "svc_hires.pickle"
+
+        with open(filename, "rb") as f:
             self.svc, self.scaler = pickle.load(f)
-            self.svc_sizes = list(self.svc.keys())
+            self.svc_sizes = sorted(list(self.svc.keys()), reverse=True)
             print(self.svc_sizes)
 
 
     def process(self, frame, frame_count):
         self.poll()
         self.frame_count = frame_count
-        self.frame = undistort_image(frame)
-        img = scale_img(self.frame, 1 / self.scale)
-        self.cropped_img = self.crop_img(img)
-        self.cropped_img_yuv = bgr2yuv(self.cropped_img)
+        self.frame = frame
+        scaled_frame = scale_img(self.frame, 1 / self.scale)
+        self.cropped_frame = self.crop_frame(scaled_frame)
+        self.cropped_frame_yuv = bgr2yuv(self.cropped_frame)
 
         self.initialize_scan()
         self.scan_edges()
@@ -65,13 +69,14 @@ class VehicleDetector(MidiControlManager):
         self.draw_bboxes()
         self.draw_grid_on_cropped_img()
         #self.calc_test_hog()
+        self.annotate_heatmap()
 
         return self.frame
 
 
     def draw_grid_on_cropped_img(self):
         if self.grid == None:
-            w, h = img_size(self.cropped_img)
+            w, h = img_size(self.cropped_frame)
             self.grid = new_img((w, h))
             y = h // 2
             for i in range(0, 3):
@@ -93,21 +98,23 @@ class VehicleDetector(MidiControlManager):
 
             draw_line(self.grid, self.left_edge[0].astype(np.int), self.left_edge[1].astype(np.int), color=cvcolor.pink, antialias=False)
 
-        self.cropped_img = blend_img(self.cropped_img, self.grid, 0.25)
+        if self.annotate:
+            self.cropped_frame = blend_img(self.cropped_frame, self.grid, 0.25)
 
 
-    def crop_img(self, img):
-        w,h = img_size(img)
+    def crop_frame(self, scaled_frame):
+        w,h = img_size(scaled_frame)
         if self.crop_y == None:
             y1,y2 = (self.crop_y_rel * h)
-            y1 = y2 - 64 * 4 // self.scale
+            h_cropped = 64 * 4 // self.scale
+            y1 = y2 - h_cropped
             self.crop_y = np.array((y1,y2),np.int)
-            h_cropped = y2 - y1
             self.cropped_image_size = np.array((h_cropped, w))
+            self.cropped_frame_rect = Rectangle(pos=(0, 0), size=(w,h_cropped))
             self.vanishing_point = Point(w // 2, h_cropped // 4 - h_cropped // 8)
             self.left_edge = [Point(0, h_cropped // 4 + h_cropped // 16), self.vanishing_point]
 
-        return img[self.crop_y[0]:self.crop_y[1]]
+        return scaled_frame[self.crop_y[0]:self.crop_y[1]]
 
 
     def initialize_scan(self):
@@ -154,7 +161,7 @@ class VehicleDetector(MidiControlManager):
 
     def evaluate_window(self, window):
         window_size = window.height()
-        window_yuv = self.cropped_img_yuv[int(window.y1):int(window.y2),int(window.x1):int(window.x2)]
+        window_yuv = self.cropped_frame_yuv[int(window.y1):int(window.y2), int(window.x1):int(window.x2)]
         X = np.array(extract_features(window_yuv, window_size))
         normalized_feature_vector = self.scaler[window_size].transform(X)
         return self.svc[window_size].predict(normalized_feature_vector)[0]
@@ -163,8 +170,12 @@ class VehicleDetector(MidiControlManager):
     def evaluate_windows_of_size(self, windows, window_size):
         X = []
         for w in windows:
-            window_yuv = self.cropped_img_yuv[int(w.y1):int(w.y2),int(w.x1):int(w.x2)]
-            X.append(extract_features(window_yuv, window_size))
+            window_yuv = self.cropped_frame_yuv[int(w.y1):int(w.y2), int(w.x1):int(w.x2)]
+            if w.width() != window_size or w.height() != window_size:
+                window_yuv = cv2.resize(window_yuv, (window_size, window_size))
+
+            ppc = 8 if self.use_hires_classifier else 16
+            X.append(extract_features(window_yuv, window_size, ppc=ppc))
         X = np.array(X)
 
         windows = np.array(windows)
@@ -179,7 +190,7 @@ class VehicleDetector(MidiControlManager):
         for r, score in zip(pos_windows, pos_window_scores):
             result.append((r, score))
             if self.save_false_positives and self.is_false_positive_candidate(r):
-                window_img = crop_img(self.cropped_img, r.x1, r.y1, r.x2, r.y2)
+                window_img = crop_img(self.cropped_frame, r.x1, r.y1, r.x2, r.y2)
                 save_img(window_img, "%s/%d/%04d-%04d" % (self.false_positive_dir_name, window_size, self.frame_count, self.false_positive_count))
                 self.false_positive_count+=1
 
@@ -188,11 +199,19 @@ class VehicleDetector(MidiControlManager):
 
     def evaluate_windows(self, windows):
         result = []
-        for ws in self.svc_sizes:
-            windows_of_size = [w for w in windows if int(w.height()) == ws]
-            if not windows_of_size:
-                continue
-            result.extend(self.evaluate_windows_of_size(windows_of_size, ws))
+        if self.use_multires_classifiers:
+            for ws in self.svc_sizes:
+                windows_of_size = [w for w in windows if int(w.height()) == ws]
+                if not windows_of_size:
+                    continue
+                result.extend(self.evaluate_windows_of_size(windows_of_size, ws))
+
+            other_windows = [w for w in windows if not w.height() in self.svc_sizes]
+            if other_windows:
+                result.extend(self.evaluate_windows_of_size(other_windows, 64))
+
+        else:
+            result.extend(self.evaluate_windows_of_size(windows, 64))
         return result
 
 
@@ -208,19 +227,27 @@ class VehicleDetector(MidiControlManager):
 
     def left_edge_windows(self):
         result = []
-        for ws,x,y in (48,0,16),(48,0,12),(32,0,16),(32,0,12),(32,0,8),(32,0,4),(32,0,0):
-            result.append(Rectangle(pos=(x,y),size=ws))
+        h,w = self.cropped_image_size
+        frame_rect = Rectangle(pos=(0,0), size=(w,h))
+
+        for width,height,x,y in (48,48,0,16),(32,32,0,0),(32,32,8,0),(32,32,16,0),(32,32,0,8),(32,32,8,8),(32,32,16,8):
+            window = Rectangle(pos=(x, y), size=(width, height)) * 4 // self.scale
+            assert frame_rect.contains(window)
+            result.append(window)
         return result
 
 
     def top_edge_windows(self):
         h,w = self.cropped_image_size
-        ws = 16
+        frame_rect = Rectangle(pos=(0,0), size=(w,h))
+        ws = 16 * 4 // self.scale
         result = []
         x1, x2 = 0, w - ws
-        x, y = x1, 4
+        x, y = x1, 4 * 4 // self.scale
         while x <= x2:
-            result.append(Rectangle(pos=(x,y),size=ws))
+            window = Rectangle(pos=(x, y), size=ws)
+            assert frame_rect.contains(window)
+            result.append(window)
             x += ws / 2
 
         return result
@@ -238,6 +265,10 @@ class VehicleDetector(MidiControlManager):
         windows = []
         for d in self.detected_cars:
             d_rect = (d.current_rect() // self.scale).translate((0,-self.crop_y[0]))
+
+            if d_rect.aspect_ratio() >= 0.75:
+                windows.append(d_rect.intersect(self.cropped_frame_rect))
+
             ws = self.window_size_for_rect(d_rect)
             dx = ws // 4
             dy = ws // 4
@@ -246,17 +277,13 @@ class VehicleDetector(MidiControlManager):
             rect_w,rect_h = d_rect.size()
             rect_w = max(rect_w, ws)
             rect_h = max(rect_h, ws)
-            d_rect = Rectangle(center=pos,size=(rect_w,rect_h))
+            w_rect = Rectangle(center=pos,size=(rect_w,rect_h))
+            w_rect = w_rect.expand(dx,dy).intersect(self.cropped_frame_rect)
 
-            y1 = max(0, d_rect.y1 - dy)
-            y2 = min(h, d_rect.y2 + dy)
-            x1 = max(0, d_rect.x1 - 2*dx)
-            x2 = min(w, d_rect.x2 + 2*dx)
-
-            y = y1
-            while y <= y2 - ws:
-                x = x1
-                while x <= x2 - ws:
+            y = w_rect.y1
+            while y <= w_rect.y2 - ws:
+                x = w_rect.x1
+                while x <= w_rect.x2 - ws:
                     r = Rectangle(pos=(x,y), size=ws)
                     windows.append(r)
                     x+= dx
@@ -319,12 +346,16 @@ class VehicleDetector(MidiControlManager):
 
 
     def draw_detected_cars(self):
-        for i,d in enumerate(self.detected_cars):
+        i = 0
+        for d in self.detected_cars:
+            if not d.is_real:
+                continue
             r = d.current_rect()
             car_img = crop_img(self.frame, r.x1,r.y1,r.x2,r.y2)
             size, margin = 128, 32
             car_img = cv2.resize(car_img, (size,size))
             paste_img(self.frame,car_img, (margin,(size + margin) * i + margin))
+            i+=1
 
 
     def update_heatmap(self):
@@ -358,6 +389,13 @@ class VehicleDetector(MidiControlManager):
         self.detected_cars = [d for d in self.detected_cars if d.is_alive()]
 
 
+    def annotate_heatmap(self):
+        r = (self.heatmap.map * 16).astype(np.uint8)
+        zero = np.zeros_like(r)
+        heatmap_overlay = join_bgr(zero,zero,r)
+        self.annotated_heatmap = blend_img(self.cropped_frame, heatmap_overlay, 1.0)
+
+
     def calc_test_hog(self):
         import skimage.feature
 
@@ -369,13 +407,13 @@ class VehicleDetector(MidiControlManager):
 
         ppc = 16
         ws = 64
-        w,h = img_size(self.cropped_img)
-        self.hog_y_1 = my_hog(self.cropped_img_yuv[:,:,0])
+        w,h = img_size(self.cropped_frame)
+        self.hog_y_1 = my_hog(self.cropped_frame_yuv[:, :, 0])
         self.hog_y_2 = np.zeros_like(self.hog_y_1)
         delta_ij = 3
         for y in range(0,h,ws):
             for x in range(0,w,ws):
-                hog = my_hog(self.cropped_img_yuv[y:y+ws,x:x+ws,0])
+                hog = my_hog(self.cropped_frame_yuv[y:y + ws, x:x + ws, 0])
                 self.hog_y_2[y:y+ws,x:x+ws] = hog
 
         self.hog_y_12 = (np.abs(self.hog_y_1 - self.hog_y_2)*128.0).astype(np.uint8)
