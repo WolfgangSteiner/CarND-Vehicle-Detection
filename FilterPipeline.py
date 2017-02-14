@@ -1,9 +1,8 @@
 import cv2
 from ImageThresholding import *
 from imageutils import *
-from midicontrol import MidiControlManager, MidiControl
 
-class FilterPipeline(MidiControlManager):
+class FilterPipeline(object):
     def __init__(self):
         super().__init__()
         self.intermediates = []
@@ -33,29 +32,29 @@ class FilterPipeline(MidiControlManager):
 class YUVPipeline(FilterPipeline):
     def __init__(self):
         super().__init__()
-        self.y_y_min = MidiControl(self, "y_y_min", 70, value=116)
-        self.y_u_min = MidiControl(self, "y_u_min", 71, value=240)
-        self.y_v_max = MidiControl(self, "y_v_max", 72, value=32)
+        self.y_y_min = 116
+        self.y_u_min = 240
+        self.y_v_max = 32
 
-        self.w_y_min = MidiControl(self, "w_y_min", 73, value=245)
-        self.w_uv_max = MidiControl(self, "w_uv_max", 105, value=32)
+        self.w_y_min = 245
+        self.w_uv_max = 32
 
-        self.mag_y_min = MidiControl(self, "mag_y_min", 87, value=20)
-        self.mag_y_max = MidiControl(self, "mag_y_max", 111, value=255)
-        self.mag_y_ksize = MidiControl(self, "mag_y_ksize", 106, value=5, allowed_values=range(3,33,2))
+        self.mag_y_min = 20
+        self.mag_y_max = 255
+        self.mag_y_ksize = 5
 
-        self.dir_y_dir = MidiControl(self, "dir_y_dir", 88, value=1.0, min=0.0, max=2.0)
-        self.dir_y_delta = MidiControl(self, "dir_y_delta", 112, value=0.5, min=0.0, max=1.0)
-        self.dir_y_ksize = MidiControl(self, "dir_y_ksize", 107, value=5, allowed_values=range(3,33,2))
+        self.dir_y_dir = 1.0
+        self.dir_y_delta = 0.5
+        self.dir_y_ksize = 5
 
-        self.mag_v_min = MidiControl(self, "mag_v_min", 7, value=16)
-        self.mag_v_max = MidiControl(self, "mag_v_max", 116, value=255)
-        self.mag_v_ksize = MidiControl(self, "mag_v_ksize", 108, value=7, allowed_values=range(3,33,2))
+        self.mag_v_min = 16
+        self.mag_v_max = 255
+        self.mag_v_ksize = 7
 
-        self.eq_limit = MidiControl(self, "eq_limit", 80, value=0.2, min=0.005, max=1.0)
-        self.eq_ny = MidiControl(self, "eq_ny", 81, value=18, allowed_values=180/np.array((180,90,60,45,30,20,15,10,5,3,2,1)))
-        self.eq_nx = MidiControl(self, "eq_nx", 82, value=4, allowed_values=np.array((4,8,16,32)))
-        self.eq_bins = MidiControl(self, "eq_bins", 83, value=4, allowed_values=np.power(2,np.arange(1,15)))
+        self.eq_limit = 0.2
+        self.eq_ny = 18
+        self.eq_nx = 4
+        self.eq_bins = 4
 
 
     def process(self, warped_frame):
@@ -71,36 +70,36 @@ class YUVPipeline(FilterPipeline):
         kernel5 = np.ones((5,5),np.uint8)
 
         #----------- yellow -------------#
-        y_y = binarize_img(y_eq, self.y_y_min.value, 255)
+        y_y = binarize_img(y_eq, self.y_y_min, 255)
         y_y = dilate(y_y, 3)
-        y_u = binarize_img(u_eq, self.y_u_min.value, 255)
+        y_u = binarize_img(u_eq, self.y_u_min, 255)
         y_u = dilate(y_u, 3)
-        y_v = binarize_img(v_eq, 0, self.y_v_max.value)
+        y_v = binarize_img(v_eq, 0, self.y_v_max)
         y_v = dilate(y_v, 3)
         yellow = AND(y_y,y_u,y_v)
         yellow[h-lower_margin:h,:] *= 0
-        mag_v_eq = mag_grad(v, self.mag_v_min.value, self.mag_v_max.value, ksize=self.mag_v_ksize.value)
+        mag_v_eq = mag_grad(v, self.mag_v_min, self.mag_v_max, ksize=self.mag_v_ksize)
         y_mag_v = AND(yellow,mag_v_eq)
 
         #------------ white -------------#
-        w_y = binarize_img(y_eq, self.w_y_min.value, 255)
+        w_y = binarize_img(y_eq, self.w_y_min, 255)
         w_y = dilate(w_y, 3)
         u_minus_v = abs_diff_channels(u,v)
-        w_uv = binarize_img(u_minus_v, 0, self.w_uv_max.value)
+        w_uv = binarize_img(u_minus_v, 0, self.w_uv_max)
         w_uv = dilate(w_uv, 3)
 
         white = AND(w_y,w_uv)
         white[h-lower_margin:h,:] *= 0
         #white = cv2.dilate(white,kernel5,iterations=1)
 
-        mag_y_eq = mag_grad(y, self.mag_y_min.value, self.mag_y_max.value, ksize=self.mag_y_ksize.value)
-        #mag_u_eq = mag_grad(u_eq, self.mag_u_min.value, self.mag_u_max.value, ksize=self.mag_u_ksize.value)
+        mag_y_eq = mag_grad(y, self.mag_y_min, self.mag_y_max, ksize=self.mag_y_ksize)
+        #mag_u_eq = mag_grad(u_eq, self.mag_u_min, self.mag_u_max, ksize=self.mag_u_ksize)
 
         w_mag_y = AND(white,mag_y_eq)
 
-        th = self.dir_y_dir.value
-        dth = self.dir_y_delta.value
-        dir_y_eq = dir_grad(y_eq, th - 0.5 * dth, th + 0.5 * dth, ksize=self.dir_y_ksize.value)
+        th = self.dir_y_dir
+        dth = self.dir_y_delta
+        dir_y_eq = dir_grad(y_eq, th - 0.5 * dth, th + 0.5 * dth, ksize=self.dir_y_ksize)
         dir_y_eq = NOT(dir_y_eq)
         w_dir_y = AND(white,dir_y_eq)
 

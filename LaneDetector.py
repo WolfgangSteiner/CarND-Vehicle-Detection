@@ -31,7 +31,6 @@ class LaneDetector(object):
             self.frame_size = np.array(frame.shape[0:2])
             self.input_frame_size = self.frame_size // self.scale
             h,w = self.input_frame_size
-            print(self.input_frame_size)
             self.dst_margin_abs = int(w * self.dst_margin_rel)
 
             # meters per pixel in y dimension
@@ -39,8 +38,6 @@ class LaneDetector(object):
 
             # meters per pixel in x dimension
             self.xm_per_px = 3.7 / (w - 2.0 * self.dst_margin_abs)
-
-            print(self.xm_per_px, self.ym_per_px)
 
             # anchor point for lane detection
             x_anchor_left = self.dst_margin_abs #+ w // 32

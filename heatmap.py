@@ -1,15 +1,14 @@
 import numpy as np
 import scipy.ndimage.measurements
 from rectangle import Rectangle
-from midicontrol import MidiControl
 
 class HeatMap(object):
-    def __init__(self, size, midimanager):
+    def __init__(self, size):
         self.map = np.zeros(size.astype(np.int), np.float32)
         self.new_map = np.zeros_like(self.map)
         self.thresholded_map = np.zeros_like(self.map)
-        self.A = MidiControl(midimanager,"heatmap_A", 82, 0.125, 0.0, 1.0)
-        self.threshold = MidiControl(midimanager,"heatmap_threshold", 81, 1.25, 0.0, 8.0)
+        self.A = 0.125
+        self.threshold = 1.25
 
 
     def add_detections(self, detections):
@@ -20,10 +19,10 @@ class HeatMap(object):
 
 
     def update_map(self):
-        self.map = self.A.value * self.new_map + (1.0 - self.A.value) * self.map
+        self.map = self.A * self.new_map + (1.0 - self.A) * self.map
         self.new_map[:,:] = 0.0
         self.thresholded_map[::] = 0.0
-        self.thresholded_map[self.map > self.threshold.value] = 1.0
+        self.thresholded_map[self.map > self.threshold] = 1.0
 
 
     def get_bboxes(self):

@@ -4,16 +4,14 @@ import pickle
 from rectangle import Rectangle
 from point import Point
 import cvcolor
-from midicontrol import MidiControlManager, MidiControl, set_logging
 from heatmap import HeatMap
 from extract_features import calc_hog, extract_features
 import Utils
 from multiprocessing.dummy import Pool
 from vehicledetection import VehicleDetection
 
-set_logging(True)
 
-class VehicleDetector(MidiControlManager):
+class VehicleDetector(object):
     def __init__(self,
         save_false_positives=False,
         use_multires_classifiers=True,
@@ -26,7 +24,6 @@ class VehicleDetector(MidiControlManager):
         self.crop_y_rel = np.array((0.55,0.90))
         self.crop_y = None
         self.grid = None
-        self.decision_threshold = MidiControl(self,"decision_threshold", 80, 0.5, 0.0, 1.0)
         self.load_classifier()
         self.heatmap = None
         self.pool = Pool(8)
@@ -54,7 +51,6 @@ class VehicleDetector(MidiControlManager):
 
 
     def process(self, frame):
-        self.poll()
         self.input_frame = frame
         self.output_frame = copy_img(frame)
         scaled_frame = scale_img(self.input_frame, 1 / self.scale)
@@ -376,7 +372,7 @@ class VehicleDetector(MidiControlManager):
 
     def update_heatmap(self):
         if self.heatmap is None:
-            self.heatmap = HeatMap(self.cropped_image_size, self)
+            self.heatmap = HeatMap(self.cropped_image_size)
 
         self.heatmap.add_detections(self.detections)
         self.heatmap.update_map()
