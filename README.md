@@ -1,4 +1,24 @@
 ## Udacity CarND Project 5: Vehicle Detection and Tracking
+### 0. Instructions
+Dependencies:
+
+* OpenCV
+* numpy
+* sklearn
+* skimage
+* pyglet
+
+The main script is `detect_vehicles.py` which will open a pyglet window and start processing the `project_video.mp4`. When the flag `--render` is added, the output is
+rendered to `project_video_annotated.mp4`. The flag `--frame-skip NUM_FRAMES` will
+tell the pipeline to skip sliding windows for NUM_FRAMES and interpolate detected
+bounding boxes for these frames. The flag `-s` specifies the down-scaling factor used
+(default is 4, values of 1,2 and 4 have been tested.) Lane detection can be
+disabled with `--no-lane-lines` and some annotations added using `--annotate`.
+
+The classifiers are trained with the script `train_classifier.py` which needs the
+directories `vehicles` and `non-vehicles` as input (not provided). It will also
+look for additional images in directories starting with `false_positives`.
+
 
 ### 1. Histogram of Oriented Gradients (HOG)
 #### 1.1. Feature Extraction
