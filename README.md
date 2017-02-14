@@ -37,7 +37,7 @@ too high in this case. Consequently, the following features are extracted for tr
 
 The relatively high value of 16 pixels per cell for the HOG calculation was chose for two
 reasons: The first is reducing the number of total features as far as possible in order
-to improve prediction performance. The second is the use of multiple classifiers for
+to improve speed of prediction. The second is the use of multiple classifiers for
 windows of different sizes, also in order to improve performance of the sliding window
 pipeline. For smaller window sizes, the number of pixels per cell is reduced proportionally,
 leading to a value of two for a 16x16 pixel window. Examples of extracted HOG features
@@ -47,11 +47,11 @@ of the Y channel are shown below for a vehicle and a non-vehicle image.
 
 #### 1.2. SVM Classifier
 In order to optimize performance of the sliding window pipeline instead of training one
-classifier for a fixed window size, a whole phalanx of classifiers for window sizes between 64 and 16 pixels are trained.
+classifier for a fixed window size, a whole phalanx of classifiers for window sizes between 64 and 16 pixels is trained.
 In this way, windows of different sizes do not need to be rescaled during the sliding window
 search, which improves performance significantly.
 
-Training of the classifiers is done in ```train_classifier.py```. First the vehicle and non-vehicle images are loaded scaled to one of the predefined window sizes (64, 56, 52, 48, 44, 40, 36, 32, 28, 24, 20, 16). Then, as a simple data augmentation step, horizontally
+Training of the classifiers is done in ```train_classifier.py```. First the vehicle and non-vehicle images are loaded and scaled to one of the predefined window sizes (64, 56, 52, 48, 44, 40, 36, 32, 28, 24, 20, 16). Then, as a simple data augmentation step, horizontally
 flipped versions of the images are added. Finally, the images are converted to YUV
 color space and the feature vectors are extracted as described above. In order to speed up feature extractions, multiple threads are utilized.
 
@@ -74,7 +74,7 @@ vehicle detection and tracking less robust (`VehicleDetector.sliding_windows`).
 
 ![Sliding windows grid.](fig/sliding_windows_grid.png)
 
-After experimenting with a grid-like sliding window algorithm and not achieving good performance, I changed the scanning pattern into a two part strategy: In order to detect new cars, only those areas are scanned where cars will enter the frame (`VehicleDetector.scan_edges`). These are the left
+After experimenting with a grid-like sliding window algorithm and not achieving fast performance, I changed the scanning pattern into a two part strategy: In order to detect new cars, only those areas are scanned where cars will enter the frame (`VehicleDetector.scan_edges`). These are the left
 and right edges for cars that come from behind, as well as a strip toward the horizon which will capture cars as we catch up with them. When a car enters the frame from one of the sides, it will cover a relatively large area, which is reflected in bigger windows at these edges (window sizes from top to bottom: 32x32, 48x48 pixels). Cars that appear on the
 (near) horizon in contrast will have a relatively small apparent size and are scanned
 by smaller windows (16x16 pixels).
@@ -95,7 +95,7 @@ This approach has a number of advantages in comparison to a grid-like sliding wi
 * The total amount of scanned windows is greatly reduced leading to higher detection speed.
 * The algorithm will search in the vicinity of the last detection with a high spatial
     resolution leading to a more robust tracking over time.
-* The search windows are centered on the last known position of the car which will allows for smaller windows during scanning (without missing the car) and consequently tighter bounding boxes.
+* The search windows are centered on the last known position of the car which allows for smaller windows during scanning (without missing the car) and consequently tighter bounding boxes.
 * Not scanning areas of the image that likely do not contain cars reduces the number
     of false positives produced by the classifier.
 
@@ -114,7 +114,7 @@ box candidates. The bounding boxes are then used to either update one of the tra
 ![](fig/pipeline.png)
 
 In order to improve the reliability of the SVM classifier, I experimented with different
-features. I first started with just extracting the HOG features of the Y channel with mixed results. I then added HOG features for the U and V channel and color histograms and spacial
+features. I first started with just extracting the HOG features of the Y channel with mixed results. I then added HOG features for the U and V channel and color histograms and spatial
 binning to the feature vector which improved the accuracy of the classifiers. Finally, I did several rounds of hard negative mining by saving and hand sorting false positives that
 were generated during a pass through the project video. With these additional training
 images I finally trained classifiers that gave acceptable results.
