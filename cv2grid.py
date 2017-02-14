@@ -4,6 +4,8 @@ import numpy as np
 import cvcolor
 import drawing
 import imageutils
+from rectangle import Rectangle
+from point import Point
 
 
 class CV2Grid(object):
@@ -55,7 +57,7 @@ class CV2Grid(object):
                 pos = np.array(((x1 + x2) // 2, y1), np.int)
                 horizontal_align = "center"
                 vertical_align = "bottom"
-                text_color = None
+                text_color = cvcolor.black
                 scale = 1.0
             elif title_style == "topleft":
                 pos = np.array((x1, y1))
@@ -75,17 +77,25 @@ class CV2Grid(object):
                 vertical_align = "bottom"
                 text_color = cvcolor.white
                 scale = 1.0
+            elif title_style == "bottomcenter":
+                pos = np.array(((x1 + x2) // 2, y2), np.int)
+                horizontal_align = "center"
+                vertical_align = "bottom"
+                text_color = cvcolor.white
+                scale = 1.0
 
-            (p1, p2) = self.tr.calc_bounding_box(
-                title,
-                pos,
-                horizontal_align=horizontal_align,
-                vertical_align=vertical_align,
-                scale=scale,
-                margin=[5, 5],
-                font=cv2.FONT_HERSHEY_PLAIN)
 
-            self.canvas[p1[1]:p2[1], p1[0]:p2[0], :] //= 2
+            if not title_style == "heading":
+                (p1, p2) = self.tr.calc_bounding_box(
+                    title,
+                    pos,
+                    horizontal_align=horizontal_align,
+                    vertical_align=vertical_align,
+                    scale=scale,
+                    margin=[5, 5],
+                    font=cv2.FONT_HERSHEY_PLAIN)
+
+                self.canvas[p1[1]:p2[1], p1[0]:p2[0], :] //= 2
 
             # if not title_style.startswith("heading"):
             #     self.tr.text_at(
@@ -117,9 +127,10 @@ class CV2Grid(object):
                 margin=[5, 5],
                 font=cv2.FONT_HERSHEY_PLAIN)
 
-    def paste_img_file(self, file_name, pos, scale=1.0):
+    def paste_img_file(self, file_name, pos, scale=1.0,title=None,title_style="heading", x_anchor="left"):
         img = imageutils.load_img(file_name)
-        self.paste_img(img, pos, scale)
+        self.paste_img(img, pos, scale,title=title, title_style=title_style, x_anchor=x_anchor)
+
 
     def arrow(self, pts, color=cvcolor.black, start_margin=0, end_margin=0):
         arrow_length = 10
@@ -204,7 +215,7 @@ class CV2Grid(object):
 
         p1 = self.abs_pos(pos) + offset
 
-        drawing.bordered_rectangle(self.canvas, p1, abs_size, fill_color, border_color, thickness=2)
+        drawing.bordered_rectangle(self.canvas, Rectangle(pos=p1, size=abs_size), fill_color, border_color, thickness=2)
         return p1, abs_size
 
     def text_frame(self, pos, size, text, text_color=cvcolor.black, fill_color=cvcolor.white,

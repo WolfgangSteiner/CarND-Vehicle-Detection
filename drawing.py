@@ -40,13 +40,13 @@ def draw_rectangle(img, rect, color, thickness=1):
     cv2.rectangle(img, (p1[0],p1[1]), (p2[0],p2[1]), color, thickness=thickness)
 
 
-def fill_rectangle(img, pos, size, color):
-    draw_rectangle(img, pos, size, color, thickness=cv2.FILLED)
+def fill_rectangle(img, rect, color):
+    draw_rectangle(img, rect, color, thickness=cv2.FILLED)
 
 
-def bordered_rectangle(img, pos, size, fill_color, border_color, thickness=1):
-    fill_rectangle(img, pos, size, fill_color)
-    draw_rectangle(img, pos, size, border_color, thickness)
+def bordered_rectangle(img, rect, fill_color, border_color, thickness=1):
+    fill_rectangle(img, rect, fill_color)
+    draw_rectangle(img, rect, border_color, thickness)
 
 
 class TextRenderer(object):

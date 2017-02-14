@@ -164,5 +164,5 @@ def NOT(a):
     return 1 - a
 
 
-def blend_img(target_img, source_img, alpha=0.5):
-    return cv2.addWeighted(target_img, 1.0, source_img, alpha, gamma=0.0)
+def blend_img(target_img, source_img, alpha=0.5, beta=1.0):
+    return cv2.addWeighted(target_img, beta, source_img, alpha, gamma=0.0)

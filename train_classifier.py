@@ -8,19 +8,25 @@ from multiprocessing import Pool as ThreadPool
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import LinearSVC
+from sklearn.svm import LinearSVC, SVC
 
+import xgboost as xgb
 import Utils
 from extract_features import extract_features
 from imageutils import *
 
+hires = False
+type = "svc"
 
 class DataSource(object):
     def __init__(self, purge=False):
         self.image_dirs_vehicles = ("vehicles",)
         self.image_dirs_non_vehicles = ("non-vehicles", "false_positives*")
-        self.sizes = (64, 56, 52, 48, 44, 40, 36, 32, 28, 24, 20, 16)
-        #self.sizes = (64,)
+
+        if hires:
+            self.sizes = (64,)
+        else:
+            self.sizes = (64, 56, 52, 48, 44, 40, 36, 32, 28, 24, 20, 16)
 
         if os.path.exists("train_data.pickle") and not purge:
             self.load_pickled_data()
@@ -83,9 +89,11 @@ class DataSource(object):
                 else:
                     scaled_img = scale_img(img,window_size / w)
 
+
+                ppc = 8 if hires else 16
                 for augmented_img in self.augment_image(scaled_img, window_size, label):
                     augmented_img_yuv = bgr2yuv(augmented_img)
-                    X[window_size].append(extract_features(augmented_img_yuv, window_size, ppc=16))
+                    X[window_size].append(extract_features(augmented_img_yuv, window_size, ppc=ppc))
 
             return X
 
@@ -154,7 +162,6 @@ class DataSource(object):
             return self.flip_image(img, label)
 
         result = []
-
         positions = self.window_positions(w,window_size)
         for x,y in product(positions,positions):
             window = crop_img(img, x,y,x+window_size,y+window_size)
@@ -165,36 +172,47 @@ class DataSource(object):
 
 
 source = DataSource(purge=True)
-svc = source.empty_dict()
+classifier = source.empty_dict()
 scaler = source.empty_dict()
 res = {}
 
-def train_classifier(size):
-    print("Size: %dx%d:" % (size, size))
+def train_svc(size):
     my_scaler = StandardScaler()
-    print("Fitting scaler with input array of size: ", source.X_train[size].shape)
     my_scaler.fit(source.X_train[size])
-    print(my_scaler.mean_.shape)
-    my_svc = LinearSVC(verbose=False, dual=False)
+    my_svc = LinearSVC()
     X_train = my_scaler.transform(source.X_train[size])
     my_svc.fit(X_train, source.y_train[size])
-    my_svc_sigmoid = CalibratedClassifierCV(my_svc, cv=2, method='sigmoid')
-    my_svc_sigmoid.fit(X_train, source.y_train[size])
-    score = my_svc_sigmoid.score(my_scaler.transform(source.X_val[size]), source.y_val[size])
+    #my_svc_sigmoid = CalibratedClassifierCV(my_svc, cv=2, method='sigmoid')
+    #my_svc_sigmoid.fit(X_train, source.y_train[size])
+    score = my_svc.score(my_scaler.transform(source.X_val[size]), source.y_val[size])
     print("Size: %d:" % size, score)
-    return (my_scaler, my_svc_sigmoid)
+    return (my_scaler, my_svc)
 
+
+def train_xgb(size):
+    my_scaler = StandardScaler()
+    my_scaler.fit(source.X_train[size])
+    my_xgb = xgb.XGBClassifier()
+    X_train = my_scaler.transform(source.X_train[size])
+    my_xgb.fit(X_train, source.y_train[size])
+    score = my_xgb.score(my_scaler.transform(source.X_val[size]), source.y_val[size])
+    print("Size: %d:" % size, score)
+    return (my_scaler, my_xgb)
+
+
+train_func = train_xgb if type=="xgb" else train_svc
 
 with ThreadPool(processes=min(8, len(source.sizes))) as pool:
-    result = pool.map(train_classifier, source.X_train.keys())
+    result = pool.map(train_func, source.X_train.keys())
     pool.close()
     pool.join()
 
 
-for idx,size in enumerate(svc.keys()):
+for idx,size in enumerate(classifier.keys()):
     scaler[size] = result[idx][0]
-    svc[size] = result[idx][1]
+    classifier[size] = result[idx][1]
 
+suffix = "hires" if hires else "multires"
 
-with open("svc_multires.pickle", "wb") as f:
-    pickle.dump((svc,scaler), f)
+with open("%s_%s.pickle" % (type,suffix), "wb") as f:
+    pickle.dump((classifier,scaler), f)
