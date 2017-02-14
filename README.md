@@ -78,9 +78,23 @@ This approach has a number of advantages in comparison to a grid-like sliding wi
 
 
 
-#### 2.2 Pipeline
+#### 2.2 Pipeline and Improvement of Classifier Reliability
+A flow chart of the complete pipeline is shown below. It shows an example for a successful
+car detection. After correcting the camera distortion, the frame is scaled down by
+a factor of four and cropped to the area of interest that may potentially contain cars.
+Then window coordinates are generated for scanning the edges of the view and the
+bounding boxes of tracked cars. For these windows, the HOG and color features are
+extracted and the resulting vectors are normalized and passed to the LinearSVC classifier
+with matching input size (one of 12 different classifiers). The positive windows are
+added to a low-pass filtered heat map, which is thresholded in order to extract bounding
+box candidates. The bounding boxes are then used to either update one of the tracked vehicle detections or represent new ones.
 ![](fig/pipeline.png)
 
+In order to improve the reliability of the SVM classifier, I experimented with different
+features. I first started with just extracting the HOG features of the Y channel with mixed results. I then added HOG features for the U and V channel and color histograms and spacial
+binning to the feature vector which improved the accuracy of the classifiers. Finally, I did several rounds of hard negative mining by saving and hand sorting false positives that
+were generated during a pass through the project video. With these additional training
+images I finally trained classifiers that gave acceptable results.
 
 
 ### 3. Video Implementation
