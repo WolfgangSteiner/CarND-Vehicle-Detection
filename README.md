@@ -86,10 +86,15 @@ This approach has a number of advantages in comparison to a grid-like sliding wi
 ### 3. Video Implementation
 #### 3.1 Final Video
 Rendered video combined with lane detection:
-https://youtu.be/dhc1NyVLd1o
+
+[![](http://img.youtube.com/vi/dhc1NyVLd1o/0.jpg)](http://www.youtube.com/watch?v=dhc1NyVLd1o)
+
 
 Realtime detection running at 12-18 fps on a MacBook Pro i7:
-https://youtu.be/6N3RZl-NYNs
+
+[![](http://img.youtube.com/vi/6N3RZl-NYNs/0.jpg)](http://www.youtube.com/watch?v=6N3RZl-NYNs)
+
+
 
 #### 3.2 False Positive Suppression and Vehicle Tracking
 False positives are suppressed by a combination of three measures: First, the sliding window algorithm selectively searches in the bounding boxes of the last known vehicles and
