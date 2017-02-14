@@ -1,5 +1,6 @@
 *.mp4
+!project_video.mp4
 non-vehicles
 vehicles
-*.pickle
-false_positives
+false_positives*
+object-detection-crowdai
