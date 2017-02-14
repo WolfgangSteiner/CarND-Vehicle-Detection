@@ -20,7 +20,10 @@ reasons: The first is reducing the number of total features as far as possible i
 to improve prediction performance. The second is the use of multiple classifiers for
 windows of different sizes, also in order to improve performance of the sliding window
 pipeline. For smaller window sizes, the number of pixels per cell is reduced proportionally,
-leading to a value of two for a 16x16 pixel window.
+leading to a value of two for a 16x16 pixel window. Examples of extracted HOG features
+of the Y channel are shown below for a vehicle and a non-vehicle image.
+
+![](fig/features.png)
 
 #### 1.2. SVM Classifier
 In order to optimize performance of the sliding window pipeline instead of training one
