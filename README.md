@@ -47,11 +47,11 @@ In order to optimize for speed, the frame is first scaled down by a factor of fo
 #### 2.1 Sliding Window Algorithm
 When implementing a sliding window algorithm in a grid-like pattern, as show below, there are two conflicting goals: On the one hand we would like to increase the number of windows in order two achieve a high spacial resolution which would allow for accurate vehicle localization and tightly fitting bounding boxes. There also have to be a wide range of different window sizes in order to detect
 vehicles at different distances. The high number of required windows in the whole frame of interest will unfortunately lead to a severe increase of processing time per frame. Also, the number of false positive detections will increase which makes the subsequent
-vehicle detection and tracking less robust.
+vehicle detection and tracking less robust (`VehicleDetector.sliding_windows`).
 
 ![Sliding windows grid.](fig/sliding_windows_grid.png)
 
-After experimenting with a grid-like sliding window algorithm and not achieving good performance, I changed the scanning pattern into a two part strategy: In order to detect new cars, only those areas are scanned where cars will enter the frame. These are the left
+After experimenting with a grid-like sliding window algorithm and not achieving good performance, I changed the scanning pattern into a two part strategy: In order to detect new cars, only those areas are scanned where cars will enter the frame (`VehicleDetector.scan_edges`). These are the left
 and right edges for cars that come from behind, as well as a strip toward the horizon which will capture cars as we catch up with them. When a car enters the frame from one of the sides, it will cover a relatively large area, which is reflected in bigger windows at these edges (window sizes from top to bottom: 32x32, 48x48 pixels). Cars that appear on the
 (near) horizon in contrast will have a relatively small apparent size and are scanned
 by smaller windows (16x16 pixels).
@@ -59,7 +59,7 @@ by smaller windows (16x16 pixels).
 ![Localized sliding windows search.](fig/sliding_windows.png)
 
 Once a car has been detected, its bounding box is scanned by an additional sliding window
-algorithm. First, a window size is chosen that is slightly less than the bounding box height. This helps to keep the subsequent bounding boxes as tightly fitting as possible.
+algorithm (`VehicleDetector.scan_vehicle_bboxes`). First, a window size is chosen that is slightly less than the bounding box height (`VehicleDetector.window_size_for_rect`). This helps to keep the subsequent bounding boxes as tightly fitting as possible.
 The window is then moved across the bounding box with a relatively small step size (one
   fourth of the window size in both x and y), while overlapping the bounding box by a margin in both the horizontal and the vertical direction. The margin is necessary to allow for the growing
   of the bounding box shortly after detection (when it still may be small) and when the
@@ -68,13 +68,12 @@ The window is then moved across the bounding box with a relatively small step si
 As a final step, a window is added with the same size of the bounding box which is rescaled
 to a square window. This allows for better detection of cars at oblique angles.
 
-
 This approach has a number of advantages in comparison to a grid-like sliding window approach:
 
 * The total amount of scanned windows is greatly reduced leading to higher detection speed.
 * The algorithm will search in the vicinity of the last detection with a high spatial
     resolution leading to a more robust tracking over time.
-* The search windows are centered on the last known position of the car which will allows for smaller windows during scanning (without missing the car) and conequently tighter bounding boxes.
+* The search windows are centered on the last known position of the car which will allows for smaller windows during scanning (without missing the car) and consequently tighter bounding boxes.
 * Not scanning areas of the image that likely do not contain cars reduces the number
     of false positives produced by the classifier.
 
