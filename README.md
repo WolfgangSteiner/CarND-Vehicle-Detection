@@ -64,7 +64,6 @@ The window is then moved across the bounding box with a relatively small step si
   fourth of the window size in both x and y), while overlapping the bounding box by a margin in both the horizontal and the vertical direction. The margin is necessary to allow for the growing
   of the bounding box shortly after detection (when it still may be small) and when the
   detected car gets closer to the camera.
-
 As a final step, a window is added with the same size of the bounding box which is rescaled
 to a square window. This allows for better detection of cars at oblique angles.
 
@@ -86,10 +85,36 @@ This approach has a number of advantages in comparison to a grid-like sliding wi
 
 ### 3. Video Implementation
 #### 3.1 Final Video
+Rendered video combined with lane detection:
+https://youtu.be/dhc1NyVLd1o
 
+Realtime detection running at 12-18 fps on a MacBook Pro i7:
+https://youtu.be/6N3RZl-NYNs
 
 #### 3.2 False Positive Suppression and Vehicle Tracking
+False positives are suppressed by a combination of three measures: First, the sliding window algorithm selectively searches in the bounding boxes of the last known vehicles and
+at the edges of the frame of interest, as described above. This already reduces the number
+of false positives generated.
 
+The second measure is the use of a low-pass filtered heat map
+(class `HeatMap`). Every positively classified window is added to the heat map of the current frame (`HeatMap.add_detections`) which is then averaged with the existing heat map
+(`HeatMap.update_map`). The resulting low-pass filtered map is then thresholded which only
+leaves the "hot" areas where several detections where registered in the last video frames.
+Finally, bounding box candidates are extracted using `scipy.ndimage.measurements.label` in
+`HeatMap.get_bboxes`.
 
+The third measure to suppress false positives is contained in the class `VehicleDetection`
+that tracks detected cars over consecutive video frames. If a new bounding box is found,
+a new instance of `VehicleDetection` is added to a list of known detections. This new detection is first kept in a provisional state and only becomes active
+when a number of bounding boxes have been found in its area over several video frames. If, however, no further detections are found in the bounding box of the new detection, it is discarded.
+
+Bounding boxed from the thresholded heat map that do overlap with a known detection, are used to update the current position and size of the respective `VehicleDetection` instance (`VehicleDetection.update`). In order to produce detections that are more stable over time,
+both the position and the size are low-pass filtered over time.
 
 #### 4. Discussion
+Possible points of failure:
+* Cars that go into the other direction are not detected. This could be very problematic on country roads where the driving directions are not separated. Maybe the video would need a higher frame rate for a robust detection in this case and the speed of the detection algorithm would need to be further improved.
+* Different lighting and weather conditions will make detection less robust.
+
+Possible improvements:
+* Interpolate position and size of tracked vehicle bounding boxes using a Kalman filter to further optimize the search area in the next video frame.
