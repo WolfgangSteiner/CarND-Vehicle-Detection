@@ -126,6 +126,8 @@ images I finally trained classifiers that gave acceptable results.
 A video of the vehicle detection and tracking pipeline together with lane detection is
 shown in the link below (click to watch). The whole pipeline runs at 6-8 fps with lane detection and at 8-10 fps without lane detection on a MacBook Pro 2015 i7.
 
+https://youtu.be/dhc1NyVLd1o
+
 [![](http://img.youtube.com/vi/dhc1NyVLd1o/0.jpg)](http://www.youtube.com/watch?v=dhc1NyVLd1o)
 
 ##### 3.1.2 Realtime Detection with Frame Skipping
@@ -133,6 +135,8 @@ The video below shows a realtime capture of the vehicle detection running on
 a MacBook Pro i7 at 12-18 fps. In order to further increase performance, the sliding window
 detection pipeline is only run once in every three frames. In the intervening frames the
 position and size of tracked vehicle bounding boxes are interpolated.
+
+https://youtu.be/6N3RZl-NYNs
 
 [![](http://img.youtube.com/vi/6N3RZl-NYNs/0.jpg)](http://www.youtube.com/watch?v=6N3RZl-NYNs)
 
