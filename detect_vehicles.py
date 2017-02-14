@@ -86,7 +86,7 @@ def process_frame(input_frame, fps=None):
     if args.render:
         new_frame = bgr2rgb(new_frame)
 
-    if counter==300:
+    if args.annotate and counter==300:
         save_img(input_frame, "input_frame", "fig")
         save_img(undistorted_frame, "undistorted_frame", "fig")
         save_img(vdetector.cropped_frame, "cropped_frame", "fig")

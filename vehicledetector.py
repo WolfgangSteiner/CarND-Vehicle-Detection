@@ -9,7 +9,7 @@ from heatmap import HeatMap
 from extract_features import calc_hog, extract_features
 import Utils
 from multiprocessing.dummy import Pool
-from cardetection import CarDetection
+from vehicledetection import VehicleDetection
 
 set_logging(True)
 
@@ -399,7 +399,7 @@ class VehicleDetector(MidiControlManager):
 
         # remaining rectangles are newly detected vehicles:
         for r in rect_list:
-            self.detected_cars.append(CarDetection(r,self.frame_skip))
+            self.detected_cars.append(VehicleDetection(r, self.frame_skip))
 
         # remove old detections
         self.detected_cars = [d for d in self.detected_cars if d.is_alive()]

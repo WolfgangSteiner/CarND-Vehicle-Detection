@@ -1,7 +1,7 @@
 from point import Point
 from rectangle import Rectangle
 
-class CarDetection(object):
+class VehicleDetection(object):
     def __init__(self, rect, frame_skip=0):
         self.current_position = rect.center()
         self.current_size = rect.size()
