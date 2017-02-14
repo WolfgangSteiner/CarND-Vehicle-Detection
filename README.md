@@ -85,15 +85,19 @@ This approach has a number of advantages in comparison to a grid-like sliding wi
 
 ### 3. Video Implementation
 #### 3.1 Final Video
-Rendered video combined with lane detection:
+##### 3.1.1 Rendered Video Combined with Lane Detection.
+A video of the vehicle detection and tracking pipeline together with lane detection is
+shown in the link below (click to watch). The whole pipeline runs at 6-8 fps with lane detection and at 8-10 fps without lane detection on a MacBook Pro 2015 i7.
 
 [![](http://img.youtube.com/vi/dhc1NyVLd1o/0.jpg)](http://www.youtube.com/watch?v=dhc1NyVLd1o)
 
-
-Realtime detection running at 12-18 fps on a MacBook Pro i7:
+##### 3.1.2 Realtime Detection with Frame Skipping
+The video below shows a realtime capture of the vehicle detection running on
+a MacBook Pro i7 at 12-18 fps. In order to further increase performance, the sliding window
+detection pipeline is only run once in every three frames. In the intervening frames the
+position and size of tracked vehicle bounding boxes are interpolated.
 
 [![](http://img.youtube.com/vi/6N3RZl-NYNs/0.jpg)](http://www.youtube.com/watch?v=6N3RZl-NYNs)
-
 
 
 #### 3.2 False Positive Suppression and Vehicle Tracking
@@ -116,10 +120,30 @@ when a number of bounding boxes have been found in its area over several video f
 Bounding boxed from the thresholded heat map that do overlap with a known detection, are used to update the current position and size of the respective `VehicleDetection` instance (`VehicleDetection.update`). In order to produce detections that are more stable over time,
 both the position and the size are low-pass filtered over time.
 
-#### 4. Discussion
-Possible points of failure:
+### 4. Discussion
+During the course of this project I focussed on attaining near realtime performance.
+To summarize, the following strategies were applied to reach this goal:
+
+* Scaling down the camera image by a factor of four and cropping to only the narrow area
+that will contain vehicles.
+* Using a phalanx of 12 SVM classifiers with different window sizes in order to avoid
+rescaling of windows during predictions.
+* Selective sliding window strategy that scans only the edges of the field of vision and
+the bounding boxes of tracked vehicles.
+* Optional skipping of video frames with interpolation of position and size of tracked vehicle bounding boxes.
+
+I presume that in an implementation for a production system there would be dedicated hardware for this task, either in the form of an FPGA for fast HOG feature extraction and
+classification, or in form of a GPU in conjunction with a fast deep learning approach to this problem. I was surprised that even on a fast i7 CPU it was very hard to reach realtime
+performance.
+
+
+#### 4.1 Possible Points of Failure:
 * Cars that go into the other direction are not detected. This could be very problematic on country roads where the driving directions are not separated. Maybe the video would need a higher frame rate for a robust detection in this case and the speed of the detection algorithm would need to be further improved.
 * Different lighting and weather conditions will make detection less robust.
+* Having a lot of vehicles, like in a traffic jam, would lead to more occlusions and would
+make tracking of individual cars harder.
 
-Possible improvements:
+#### 4.2 Possible improvements:
+
 * Interpolate position and size of tracked vehicle bounding boxes using a Kalman filter to further optimize the search area in the next video frame.
+* This could also help to continue tracking of occluded cars.
